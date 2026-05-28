@@ -92,7 +92,7 @@ export default function DraftBoard() {
           {assigned ? (
             <><p className="text-xs text-white truncate">{assigned.name}</p><p className="text-xs text-gray-500">{assigned.position} · {assigned.school}</p></>
           ) : (
-            <p className={'text-xs ' + (isSelected ? 'text-blue-200' : 'text-gray-500')}>{isSelected ? 'Select from right panel →' : pick.abbreviation}</p>
+            <p className={'text-xs ' + (isSelected ? 'text-blue-200' : 'text-gray-500')}>{isSelected ? 'Select from right panel →' : <span className="text-gray-600">{pick.city}</span>}</p>
           )}
         </div>
         {assigned && <span className="text-xs text-gray-600 hover:text-red-400 shrink-0">×</span>}
