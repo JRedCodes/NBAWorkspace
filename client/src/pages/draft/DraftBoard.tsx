@@ -7,6 +7,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  DragOverlay,
 } from '@dnd-kit/core'
 import {
   SortableContext,
@@ -25,15 +26,18 @@ function ScoreHeader({ label, short }: { label: string; short: string }) {
 
 export default function DraftBoard() {
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 }, // prevents accidental drags on click
+    }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
-  const { data: allProspects = [] } = useProspects()
+  const { data: allProspects = [] } = useProspects({ draftYear: '2026' })
   const { data: boards = [] } = useDraftBoards()
   const createBoard = useCreateBoard()
 
   const [activeBoardId, setActiveBoardId] = useState<string>('')
+  const [activeId, setActiveId] = useState<string | null>(null)
   const [localRankings, setLocalRankings] = useState<Prospect[]>([])
   const [posFilter, setPosFilter] = useState('')
   const [isDirty, setIsDirty] = useState(false)
@@ -66,7 +70,12 @@ export default function DraftBoard() {
     ? localRankings.filter((p) => p.position === posFilter)
     : localRankings
 
+  function handleDragStart(event: { active: { id: string | number } }) {
+    setActiveId(String(event.active.id))
+  }
+
   function handleDragEnd(event: DragEndEvent) {
+    setActiveId(null)
     const { active, over } = event
     if (!over || active.id === over.id) return
 
@@ -98,7 +107,7 @@ export default function DraftBoard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Draft Board</h1>
-          <p className="text-sm text-gray-500 mt-0.5">2025 Draft Class · {(allProspects as []).length} prospects</p>
+          <p className="text-sm text-gray-500 mt-0.5">2026 Draft Class · {(allProspects as []).length} prospects · Combine measurements</p>
         </div>
         <div className="flex items-center gap-2">
           {isDirty && (
@@ -152,14 +161,19 @@ export default function DraftBoard() {
         <div className="space-y-1">
           <div className="flex items-center justify-between px-1 mb-2">
             <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">My Board</h2>
-            <span className="text-xs text-blue-400">← drag to reorder</span>
+            <span className="text-xs text-gray-500">grip (⠿) to drag</span>
           </div>
           {localRankings.length === 0 ? (
             <div className="text-center py-8 text-gray-600 text-sm border border-gray-700 border-dashed rounded-lg">
               Create a board to start ranking
             </div>
           ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
               <SortableContext
                 items={filtered.map((p) => p.id)}
                 strategy={verticalListSortingStrategy}
@@ -168,6 +182,15 @@ export default function DraftBoard() {
                   <ProspectCard key={p.id} prospect={p} rank={i + 1} isDraggable />
                 ))}
               </SortableContext>
+              <DragOverlay>
+                {activeId ? (
+                  <ProspectCard
+                    prospect={localRankings.find((p) => p.id === activeId)!}
+                    rank={localRankings.findIndex((p) => p.id === activeId) + 1}
+                    isDraggable={false}
+                  />
+                ) : null}
+              </DragOverlay>
             </DndContext>
           )}
         </div>

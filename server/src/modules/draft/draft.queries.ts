@@ -8,7 +8,7 @@ export const draftQueries = {
     maxRank?: number
     draftYear?: number
   }) {
-    const year = filters.draftYear ?? 2025
+    const year = filters.draftYear ?? 2026
     const query = db('prospects as p')
       .leftJoin('prospect_computed_scores as s', 'p.id', 's.prospect_id')
       .where('p.draft_year', year)
@@ -80,7 +80,7 @@ export const draftQueries = {
     return board
   },
 
-  async seedBoardWithModelRanks(boardId: string, draftYear = 2025): Promise<void> {
+  async seedBoardWithModelRanks(boardId: string, draftYear = 2026): Promise<void> {
     const prospects = await db('prospects as p')
       .leftJoin('prospect_computed_scores as s', 'p.id', 's.prospect_id')
       .where('p.draft_year', draftYear)

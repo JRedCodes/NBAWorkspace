@@ -1,6 +1,6 @@
 """
-Ingests shot chart data for all active players.
-Runs daily — incremental by checking existing game_ids to avoid re-ingesting.
+Ingests shot chart data for all active players with season stats.
+Runs daily — incremental by checking existing game_ids.
 """
 import sys
 import logging
@@ -11,7 +11,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 CURRENT_SEASON = '2025-26'
-BATCH_SIZE = 50  # players per run to respect rate limits
 
 
 def get_existing_game_ids(player_db_id: str) -> set[str]:
@@ -40,10 +39,8 @@ def ingest_player(player_db_id: str, nba_player_id: int) -> int:
 
     for s in new_shots:
         home_team = s.get('HTM', '')
-        away_team = s.get('VTM', '')
-        # is_home: player's team is the home team
         team_name = s.get('TEAM_NAME', '')
-        is_home = team_name == home_team if home_team else None
+        is_home = (team_name == home_team) if home_team else None
 
         execute("""
             INSERT INTO shot_chart_entries (
@@ -75,7 +72,6 @@ def ingest_player(player_db_id: str, nba_player_id: int) -> int:
 
 
 def run():
-    # Prioritize high-usage players (more likely to have shot data)
     players = fetchall("""
         SELECT p.id, p.nba_player_id, p.first_name, p.last_name
         FROM players p
@@ -84,8 +80,7 @@ def run():
           AND pss.games_played >= 10
           AND p.status = 'active'
         ORDER BY pss.minutes_per_game DESC NULLS LAST
-        LIMIT :batch
-    """, {'season': CURRENT_SEASON, 'batch': BATCH_SIZE})
+    """, {'season': CURRENT_SEASON})
 
     logger.info(f'Ingesting shot charts for {len(players)} players')
     total_new = 0
