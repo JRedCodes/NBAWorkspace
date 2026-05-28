@@ -109,6 +109,51 @@ export interface CarouselTeam extends Team {
   head_coach: string | null
 }
 
+export interface CBAViolation {
+  code: string
+  message: string
+  teamId?: string
+}
+
+export interface TeamTradeSummary {
+  teamId: string
+  salaryOut: number
+  salaryIn: number
+  netChange: number
+  isOverCap: boolean
+  matchingRequired: boolean
+  matchingMax: number
+  matchingOk: boolean
+}
+
+export interface TradeValidationResult {
+  isValid: boolean
+  violations: CBAViolation[]
+  teamSummaries: Record<string, TeamTradeSummary>
+}
+
+export interface TradeProjection {
+  playersOut: { playerId: string; name: string; salary: number }[]
+  playersIn: { playerId: string; name: string; salary: number }[]
+  projectedPayroll: number
+  isValid: boolean
+}
+
+export interface TradeProjectionResult {
+  validation: TradeValidationResult
+  projection: Record<string, TradeProjection>
+}
+
+export interface TradeScenario {
+  id: string
+  name: string
+  status: string
+  is_valid: boolean | null
+  has_drift: boolean
+  saved_at: string | null
+  updated_at: string
+}
+
 export interface FitScore {
   overall: number
   breakdown: {
