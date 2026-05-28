@@ -13,7 +13,7 @@ from lib.fallback import assess_completeness, fill_missing, safe_percentile
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 
-CURRENT_SEASON = '2024-25'
+CURRENT_SEASON = '2025-26'
 
 
 def to_float(value) -> float | None:

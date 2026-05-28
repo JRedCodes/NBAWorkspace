@@ -17,7 +17,7 @@ from lib.nba_client import (
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 
-CURRENT_SEASON = '2024-25'
+CURRENT_SEASON = '2025-26'
 
 
 def get_player_id_map() -> dict[int, str]:
