@@ -68,3 +68,5 @@ Thumbs.db
 
 # React / Vite
 .vite/
+
+.inportantinfo.md
