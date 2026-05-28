@@ -22,10 +22,14 @@ export default function PlayerView() {
   const { playerId } = useParams<{ playerId: string }>()
   const navigate = useNavigate()
 
+  const CURRENT_SEASON = '2025-26'
+  const [shotFilters, setShotFilters] = useState<Record<string, string>>({ season: CURRENT_SEASON })
+
   const { data: player, isLoading } = usePlayer(playerId!)
   const { data: stats } = usePlayerStats(playerId!)
   const { data: metrics } = usePlayerMetrics(playerId!)
   const { data: contract } = usePlayerContract(playerId!)
+  const { data: shotData = [] } = usePlayerShotChart(playerId!, shotFilters)
 
   if (isLoading) {
     return (
@@ -37,9 +41,6 @@ export default function PlayerView() {
 
   if (!player) return null
 
-  const CURRENT_SEASON = '2025-26'
-  const [shotFilters, setShotFilters] = useState<Record<string, string>>({ season: CURRENT_SEASON })
-  const { data: shotData = [] } = usePlayerShotChart(player.id, shotFilters)
   const latestStats = stats?.find((s) => s.season_year === CURRENT_SEASON) ?? stats?.[0]
   const isCurrentSeason = latestStats?.season_year === CURRENT_SEASON
   const chartData = stats?.slice().reverse().map((s) => ({
