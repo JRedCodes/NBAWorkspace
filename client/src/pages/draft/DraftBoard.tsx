@@ -1,188 +1,199 @@
-import { useState, useEffect } from 'react'
-import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor,
-  useSensor, useSensors, type DragEndEvent, DragOverlay,
-} from '@dnd-kit/core'
-import {
-  SortableContext, sortableKeyboardCoordinates,
-  verticalListSortingStrategy, arrayMove,
-} from '@dnd-kit/sortable'
-import { ProspectCard, type Prospect } from '../../components/draft/ProspectCard'
-import {
-  useProspects, useDraftBoards, useDraftBoard,
-  useCreateBoard, useReplaceRankings, useResetBoard,
-} from '../../hooks/useDraft'
+import { useState } from 'react'
+import { useProspects, useDraftOrder } from '../../hooks/useDraft'
+import { useAllTeams } from '../../hooks/useTeams'
+import type { Prospect } from '../../components/draft/ProspectCard'
 
-function RoundSeparator({ round }: { round: number }) {
+interface DraftPick {
+  pick_id: string
+  pick_number: number
+  round: number
+  draft_year: number
+  team_id: string
+  team_name: string
+  abbreviation: string
+  city: string
+  logo_url: string | null
+  original_team_abbr: string
+}
+
+function TeamLogo({ logo_url, abbreviation, size = 24 }: { logo_url: string | null; abbreviation: string; size?: number }) {
+  const [err, setErr] = useState(false)
+  if (logo_url && !err) {
+    return <img src={logo_url} alt={abbreviation} width={size} height={size} className="object-contain shrink-0" onError={() => setErr(true)} />
+  }
+  return <span className="text-xs font-bold text-gray-400 shrink-0" style={{ width: size, textAlign: 'center' }}>{abbreviation}</span>
+}
+
+function RoundHeader({ round }: { round: number }) {
   return (
-    <div className="flex items-center gap-2 py-1 my-0.5">
+    <div className="flex items-center gap-2 py-2 mt-2 mb-1">
       <div className="flex-1 h-px bg-gray-700" />
-      <span className="text-xs text-gray-600 shrink-0">End of Round {round}</span>
+      <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider shrink-0">Round {round}</span>
       <div className="flex-1 h-px bg-gray-700" />
     </div>
   )
 }
 
 export default function DraftBoard() {
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
-
+  const { data: draftOrder = [] } = useDraftOrder()
   const { data: allProspects = [] } = useProspects({ draftYear: '2026' })
-  const { data: boards = [] } = useDraftBoards()
-  const createBoard = useCreateBoard()
-  const [activeBoardId, setActiveBoardId] = useState<string>('')
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [localRankings, setLocalRankings] = useState<Prospect[]>([])
+  const { data: allTeams = [] } = useAllTeams()
+
+  const [assignments, setAssignments] = useState<Record<string, Prospect>>({})
+  const [myTeamId, setMyTeamId] = useState<string>('')
   const [posFilter, setPosFilter] = useState('')
-  const [isDirty, setIsDirty] = useState(false)
+  const [searchQ, setSearchQ] = useState('')
+  const [selectedPick, setSelectedPick] = useState<DraftPick | null>(null)
 
-  const { data: boardEntries = [] } = useDraftBoard(activeBoardId)
-  const saveRankings = useReplaceRankings(activeBoardId)
-  const resetBoard = useResetBoard()
+  const picks = draftOrder as DraftPick[]
+  const assignedIds = new Set(Object.values(assignments).map((p) => p.id))
 
-  const prospect2026Ids = new Set((allProspects as Prospect[]).map((p) => p.id))
-  const hasStaleBoardData = localRankings.length > 0 && localRankings.every((p) => !prospect2026Ids.has(p.id))
-
-  const espnOrder = [...(allProspects as Prospect[])].sort(
-    (a, b) => (a.projected_pick ?? 999) - (b.projected_pick ?? 999),
-  )
-
-  useEffect(() => {
-    const list = boards as { id: string }[]
-    if (list.length > 0 && !activeBoardId) setActiveBoardId(list[0].id)
-  }, [boards, activeBoardId])
-
-  useEffect(() => {
-    if (boardEntries.length > 0) { setLocalRankings(boardEntries as Prospect[]); setIsDirty(false) }
-  }, [boardEntries])
-
-  const filtered = posFilter ? localRankings.filter((p) => p.position === posFilter) : localRankings
-  const filteredEspn = posFilter ? espnOrder.filter((p) => p.position === posFilter) : espnOrder
-
-  function handleDragStart(e: { active: { id: string | number } }) { setActiveId(String(e.active.id)) }
-
-  function handleDragEnd(event: DragEndEvent) {
-    setActiveId(null)
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-    setLocalRankings((items) => {
-      const moved = arrayMove(items, items.findIndex((p) => p.id === active.id), items.findIndex((p) => p.id === over.id))
-      return moved.map((p, i) => ({ ...p, custom_rank: i + 1 }))
-    })
-    setIsDirty(true)
-  }
-
-  async function handleSave() {
-    await saveRankings.mutateAsync(localRankings.map((p, i) => ({ prospectId: p.id, rank: i + 1 })))
-    setIsDirty(false)
-  }
+  const availableProspects = [...(allProspects as Prospect[])]
+    .sort((a, b) => (a.projected_pick ?? 999) - (b.projected_pick ?? 999))
+    .filter((p) => !assignedIds.has(p.id))
+    .filter((p) => !posFilter || p.position === posFilter)
+    .filter((p) => !searchQ || p.name.toLowerCase().includes(searchQ.toLowerCase()))
 
   const positions = [...new Set((allProspects as Prospect[]).map((p) => p.position).filter(Boolean))].sort()
 
-  function withSeparators(prospects: Prospect[], usePickForSep: boolean) {
-    const items: React.ReactNode[] = []
-    let r1 = false; let r2 = false
-    prospects.forEach((p, i) => {
-      const rank = usePickForSep ? (p.projected_pick ?? i + 1) : i + 1
-      if (!r1 && rank > 30) { items.push(<RoundSeparator key="sep1" round={1} />); r1 = true }
-      if (!r2 && rank > 60) { items.push(<RoundSeparator key="sep2" round={2} />); r2 = true }
-      items.push(
-        <ProspectCard
-          key={p.id} prospect={p}
-          rank={usePickForSep ? (p.projected_pick ?? i + 1) : i + 1}
-          isDraggable={!usePickForSep}
-          dimmed={(usePickForSep ? (p.projected_pick ?? 999) : i + 1) > 60}
-        />,
-      )
-    })
-    return items
+  function assign(pick: DraftPick, prospect: Prospect) {
+    setAssignments((prev) => ({ ...prev, [pick.pick_id]: prospect }))
+    setSelectedPick(null)
+  }
+
+  function unassign(pickId: string) {
+    setAssignments((prev) => { const next = { ...prev }; delete next[pickId]; return next })
+  }
+
+  function handlePickClick(pick: DraftPick) {
+    if (assignments[pick.pick_id]) {
+      unassign(pick.pick_id)
+    } else {
+      setSelectedPick((p) => p?.pick_id === pick.pick_id ? null : pick)
+    }
+  }
+
+  const r1 = picks.filter((p) => p.round === 1)
+  const r2 = picks.filter((p) => p.round === 2)
+  const myPicks = picks.filter((p) => p.team_id === myTeamId)
+
+  function PickRow({ pick, dim }: { pick: DraftPick; dim?: boolean }) {
+    const assigned = assignments[pick.pick_id]
+    const isMyPick = pick.team_id === myTeamId
+    const isSelected = selectedPick?.pick_id === pick.pick_id
+    return (
+      <button
+        onClick={() => handlePickClick(pick)}
+        className={'w-full flex items-center gap-2 px-2.5 py-1.5 rounded text-left transition-colors ' + (dim ? 'opacity-70 ' : '') + (isSelected ? 'bg-blue-700 border border-blue-500' : isMyPick ? 'bg-blue-950/50 border border-blue-800 hover:border-blue-600' : assigned ? 'bg-gray-800/60 border border-gray-700' : 'border border-transparent hover:bg-gray-800')}
+      >
+        <span className="text-xs font-mono text-gray-500 w-5 text-right shrink-0">{pick.pick_number}</span>
+        <TeamLogo logo_url={pick.logo_url} abbreviation={pick.abbreviation} size={18} />
+        <div className="flex-1 min-w-0">
+          {assigned ? (
+            <><p className="text-xs text-white truncate">{assigned.name}</p><p className="text-xs text-gray-500">{assigned.position} · {assigned.school}</p></>
+          ) : (
+            <p className={'text-xs ' + (isSelected ? 'text-blue-200' : 'text-gray-500')}>{isSelected ? 'Select from right panel →' : pick.abbreviation}</p>
+          )}
+        </div>
+        {assigned && <span className="text-xs text-gray-600 hover:text-red-400 shrink-0">×</span>}
+      </button>
+    )
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Draft Board</h1>
-          <p className="text-sm text-gray-500 mt-0.5">2026 Draft Class · {(allProspects as []).length} prospects</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {isDirty && (
-            <button onClick={handleSave} disabled={saveRankings.isPending}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm rounded">
-              {saveRankings.isPending ? 'Saving…' : 'Save order'}
-            </button>
-          )}
-          <select value={activeBoardId} onChange={(e) => setActiveBoardId(e.target.value)}
-            className="px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-sm text-white focus:outline-none">
-            {(boards as { id: string; name: string }[]).map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
+    <div className="flex h-[calc(100vh-56px)] overflow-hidden">
+      {/* Pick board */}
+      <div className="w-72 flex-shrink-0 border-r border-gray-800 flex flex-col">
+        <div className="p-4 border-b border-gray-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-bold text-white">2026 Draft</h1>
+            <span className="text-xs text-gray-500">{Object.keys(assignments).length}/60 picked</span>
+          </div>
+          <select value={myTeamId} onChange={(e) => setMyTeamId(e.target.value)}
+            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-sm text-white focus:outline-none">
+            <option value="">— select your team —</option>
+            {(allTeams as { id: string; city: string; name: string }[]).map((t) => (
+              <option key={t.id} value={t.id}>{t.city} {t.name}</option>
             ))}
           </select>
-          <button onClick={async () => { const b = await createBoard.mutateAsync(`My Board ${(boards as []).length + 1}`); setActiveBoardId((b as { id: string }).id) }}
-            disabled={createBoard.isPending}
-            className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded">
-            + New board
-          </button>
-        </div>
-      </div>
-
-      <div className="flex gap-1 flex-wrap">
-        {['', ...positions].map((pos) => (
-          <button key={pos || 'all'} onClick={() => setPosFilter(pos)}
-            className={`px-2.5 py-1 text-xs rounded ${posFilter === pos ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
-            {pos || 'All'}
-          </button>
-        ))}
-      </div>
-
-      {hasStaleBoardData && (
-        <div className="flex items-center justify-between px-3 py-2 bg-yellow-950/50 border border-yellow-700 rounded-lg text-xs">
-          <span className="text-yellow-400">This board has entries from a previous draft class</span>
-          <button onClick={() => resetBoard.mutate(activeBoardId)} disabled={resetBoard.isPending}
-            className="text-yellow-300 hover:text-white font-medium disabled:opacity-50 ml-2">
-            {resetBoard.isPending ? 'Resetting…' : 'Reset to 2026 class'}
-          </button>
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-6">
-        <div>
-          <div className="flex items-center justify-between px-1 mb-2">
-            <h2 className="text-xs font-semibold text-white uppercase tracking-wider">My Board</h2>
-            <span className="text-xs text-gray-500">⠿ grip to drag</span>
-          </div>
-          {localRankings.length === 0 ? (
-            <div className="text-center py-10 text-gray-600 text-sm border border-gray-700 border-dashed rounded-lg">
-              Create a board to start ranking
-            </div>
-          ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-              <SortableContext items={filtered.map((p) => p.id)} strategy={verticalListSortingStrategy}>
-                <div className="space-y-0.5">{withSeparators(filtered, false)}</div>
-              </SortableContext>
-              <DragOverlay>
-                {activeId ? (
-                  <ProspectCard
-                    prospect={localRankings.find((p) => p.id === activeId)!}
-                    rank={localRankings.findIndex((p) => p.id === activeId) + 1}
-                    isDraggable={false}
-                  />
-                ) : null}
-              </DragOverlay>
-            </DndContext>
+          {Object.keys(assignments).length > 0 && (
+            <button onClick={() => setAssignments({})} className="text-xs text-red-400 hover:text-red-300">Reset simulation</button>
           )}
         </div>
-
-        <div>
-          <div className="px-1 mb-2">
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">ESPN 2026 Best Available</h2>
-            <p className="text-xs text-gray-600 mt-0.5">Consensus ranking · not a mock draft order</p>
-          </div>
-          <div className="space-y-0.5">{withSeparators(filteredEspn, true)}</div>
+        <div className="flex-1 overflow-y-auto p-3 space-y-0.5">
+          <RoundHeader round={1} />
+          {r1.map((pick) => <PickRow key={pick.pick_id} pick={pick} />)}
+          <RoundHeader round={2} />
+          {r2.map((pick) => <PickRow key={pick.pick_id} pick={pick} dim />)}
         </div>
       </div>
+
+      {/* Available prospects */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="p-4 border-b border-gray-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-white">
+              {selectedPick ? <>Assigning <span className="text-blue-400">Pick #{selectedPick.pick_number}</span> · {selectedPick.abbreviation}</> : 'Available Prospects'}
+              <span className="ml-2 text-xs text-gray-500 font-normal">{availableProspects.length} remaining</span>
+            </h2>
+            {selectedPick && <button onClick={() => setSelectedPick(null)} className="text-xs text-gray-500 hover:text-gray-300">Cancel</button>}
+          </div>
+          <input type="text" placeholder="Search prospects..." value={searchQ} onChange={(e) => setSearchQ(e.target.value)}
+            className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500" />
+          <div className="flex gap-1 flex-wrap">
+            {['',...positions].map((pos) => (
+              <button key={pos||'all'} onClick={() => setPosFilter(pos)}
+                className={'px-2 py-0.5 text-xs rounded ' + (posFilter===pos ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white')}>
+                {pos || 'All'}
+              </button>
+            ))}
+          </div>
+          {!selectedPick && <p className="text-xs text-gray-600">Click a pick slot on the left, then select a prospect here</p>}
+        </div>
+        <div className="flex-1 overflow-y-auto p-3 space-y-0.5">
+          {availableProspects.map((p) => (
+            <button key={p.id} onClick={() => selectedPick && assign(selectedPick, p)}
+              className={'w-full flex items-center gap-3 px-3 py-2 rounded text-left transition-colors ' + (selectedPick ? 'hover:bg-blue-700 border border-transparent hover:border-blue-500 cursor-pointer' : 'border border-transparent cursor-default hover:bg-gray-800/50') + ((p.projected_pick ?? 999) > 60 ? ' opacity-50' : '')}>
+              <span className="text-xs font-mono text-gray-500 w-5 text-right shrink-0">{p.projected_pick}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white truncate">{p.name}</p>
+                <p className="text-xs text-gray-500">{p.position} · {p.school}</p>
+              </div>
+              {selectedPick && <span className="text-xs text-blue-400 shrink-0">+ Pick</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* My picks summary */}
+      {myTeamId && myPicks.length > 0 && (
+        <div className="w-52 flex-shrink-0 border-l border-gray-800 flex flex-col">
+          <div className="p-4 border-b border-gray-800">
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">My Picks</h2>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {myPicks.map((pick) => {
+              const assigned = assignments[pick.pick_id]
+              return (
+                <div key={pick.pick_id} className="space-y-0.5">
+                  <p className="text-xs text-gray-500">R{pick.round} #{pick.pick_number}</p>
+                  {assigned ? (
+                    <div onClick={() => unassign(pick.pick_id)} className="bg-blue-900/40 border border-blue-800 rounded p-2 cursor-pointer hover:border-red-500 transition-colors">
+                      <p className="text-sm text-white truncate">{assigned.name}</p>
+                      <p className="text-xs text-gray-400">{assigned.position} · {assigned.school}</p>
+                    </div>
+                  ) : (
+                    <button onClick={() => setSelectedPick(pick)}
+                      className="w-full bg-gray-800 border border-gray-700 border-dashed rounded p-2 text-xs text-gray-600 hover:text-blue-400 hover:border-blue-700 transition-colors text-left">
+                      + Select prospect
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -37,20 +37,27 @@ export const draftQueries = {
       .first()
   },
 
-  getDraftOrder(season = '2025-26') {
-    return db('team_season_stats as tss')
-      .join('teams as t', 'tss.team_id', 't.id')
-      .leftJoin(
-        db('power_rankings').distinctOn('team_id').orderBy('team_id').orderBy('computed_at', 'desc').as('pr'),
-        't.id', 'pr.team_id',
-      )
-      .where('tss.season_year', season)
+  getDraftOrder(draftYear = 2026) {
+    return db('draft_picks as dp')
+      .join('teams as t', 'dp.current_owner_id', 't.id')
+      .join('teams as ot', 'dp.original_team_id', 'ot.id')
+      .where('dp.draft_year', draftYear)
+      .where('dp.round', 1)
+      .whereNotNull('dp.pick_number')
       .select(
-        't.id as team_id', 't.name', 't.abbreviation', 't.city',
-        'tss.wins', 'tss.losses', 'tss.playoff_seed',
-        'pr.rank as power_rank',
+        'dp.id as pick_id',
+        'dp.pick_number',
+        'dp.round',
+        'dp.draft_year',
+        'dp.is_known',
+        't.id as team_id',
+        't.name as team_name',
+        't.abbreviation',
+        't.city',
+        't.logo_url',
+        'ot.abbreviation as original_team_abbr',
       )
-      .orderBy('tss.wins')  // worst record picks first
+      .orderBy('dp.pick_number')
   },
 
   getBoardsByWorkspace(workspaceId: string) {

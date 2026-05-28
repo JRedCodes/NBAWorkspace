@@ -31,11 +31,11 @@ export const draftService = {
     return data
   },
 
-  async getDraftOrder() {
-    const key = 'draft:order'
+  async getDraftOrder(draftYear = 2026) {
+    const key = `draft:order:${draftYear}`
     const cached = await cacheService.get(key)
     if (cached) return cached
-    const data = await draftQueries.getDraftOrder()
+    const data = await draftQueries.getDraftOrder(draftYear)
     await cacheService.set(key, data, 6 * 60 * 60)
     return data
   },
