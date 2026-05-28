@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { CarouselTeam } from '../../types'
+import { PlayerAvatar } from '../ui/PlayerAvatar'
 
 interface Props {
   teams: CarouselTeam[]
@@ -10,7 +11,7 @@ interface Props {
 
 const POSITION_ORDER = ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F', 'G-F', 'F-C', '']
 
-function sortByPosition(players: { name: string; position: string }[]) {
+function sortByPosition<T extends { position: string }>(players: T[]): T[] {
   return [...players].sort(
     (a, b) => POSITION_ORDER.indexOf(a.position) - POSITION_ORDER.indexOf(b.position),
   )
@@ -94,13 +95,18 @@ export function TeamCarousel({ teams, activeIndex, onIndexChange }: Props) {
             Projected Starting 5
           </p>
           {sorted.length > 0 ? (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {sorted.slice(0, 5).map((p, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-gray-500 w-8 shrink-0">
+                <div key={i} className="flex items-center gap-2.5">
+                  <PlayerAvatar
+                    nbaPlayerId={p.nbaPlayerId}
+                    name={p.name}
+                    size="sm"
+                  />
+                  <span className="text-sm text-gray-200 flex-1 truncate">{p.name}</span>
+                  <span className="text-xs font-mono text-gray-500 shrink-0">
                     {p.position || '—'}
                   </span>
-                  <span className="text-sm text-gray-200">{p.name}</span>
                 </div>
               ))}
             </div>

@@ -105,7 +105,7 @@ export interface CarouselTeam extends Team {
   losses: number | null
   offensive_rating: number | null
   defensive_rating: number | null
-  top_players: { name: string; position: string }[]
+  top_players: { name: string; position: string; nbaPlayerId: number | null }[]
   head_coach: string | null
 }
 

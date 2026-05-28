@@ -119,6 +119,7 @@ export const teamsQueries = {
     const players = await db.raw(`
       SELECT
         p.team_id,
+        p.nba_player_id,
         p.first_name || ' ' || p.last_name AS name,
         p.position,
         pss.minutes_per_game,
@@ -137,11 +138,11 @@ export const teamsQueries = {
       .where({ role: 'Head Coach' })
       .select('team_id', 'name')
 
-    const top5Map: Record<string, { name: string; position: string }[]> = {}
+    const top5Map: Record<string, { name: string; position: string; nbaPlayerId: number | null }[]> = {}
     for (const p of players.rows) {
       if (p.rn <= 5) {
         if (!top5Map[p.team_id]) top5Map[p.team_id] = []
-        top5Map[p.team_id].push({ name: p.name, position: p.position })
+        top5Map[p.team_id].push({ name: p.name, position: p.position, nbaPlayerId: p.nba_player_id })
       }
     }
 
