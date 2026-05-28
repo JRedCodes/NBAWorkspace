@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { usePlayer, usePlayerStats, usePlayerMetrics, usePlayerContract } from '../../hooks/usePlayers'
+import { usePlayer, usePlayerStats, usePlayerMetrics, usePlayerContract, usePlayerShotChart } from '../../hooks/usePlayers'
 import { PercentileBar } from '../../components/player/PercentileBar'
+import { ShotChart } from '../../components/player/ShotChart'
 import { PlayerAvatar } from '../../components/ui/PlayerAvatar'
 import { formatSalary } from '../../utils/format'
 import type { PlayerMetrics } from '../../types'
@@ -36,6 +38,8 @@ export default function PlayerView() {
   if (!player) return null
 
   const CURRENT_SEASON = '2025-26'
+  const [shotFilters, setShotFilters] = useState<Record<string, string>>({ season: CURRENT_SEASON })
+  const { data: shotData = [] } = usePlayerShotChart(player.id, shotFilters)
   const latestStats = stats?.find((s) => s.season_year === CURRENT_SEASON) ?? stats?.[0]
   const isCurrentSeason = latestStats?.season_year === CURRENT_SEASON
   const chartData = stats?.slice().reverse().map((s) => ({
@@ -121,6 +125,50 @@ export default function PlayerView() {
               </ResponsiveContainer>
             </div>
           )}
+
+          {/* Shot Chart */}
+          <div className="bg-gray-800 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Shot Chart</h2>
+              <div className="flex gap-1">
+                {['All', 'Q1', 'Q2', 'Q3', 'Q4'].map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => setShotFilters((f) => {
+                      const { period: _, ...rest } = f
+                      return q === 'All' ? rest : { ...rest, period: String(['Q1','Q2','Q3','Q4'].indexOf(q) + 1) }
+                    })}
+                    className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                      (q === 'All' && !shotFilters.period) || shotFilters.period === String(['Q1','Q2','Q3','Q4'].indexOf(q) + 1)
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {q}
+                  </button>
+                ))}
+                <select
+                  value={shotFilters.shot_type ?? ''}
+                  onChange={(e) => setShotFilters((f) => {
+                    const { shot_type: _, ...rest } = f
+                    return e.target.value ? { ...rest, shot_type: e.target.value } : rest
+                  })}
+                  className="ml-1 px-1.5 py-0.5 text-xs bg-gray-700 border border-gray-600 rounded text-gray-300 focus:outline-none"
+                >
+                  <option value="">All types</option>
+                  <option value="2PT Field Goal">2PT</option>
+                  <option value="3PT Field Goal">3PT</option>
+                </select>
+              </div>
+            </div>
+            {shotData.length > 0 ? (
+              <ShotChart shots={shotData as Parameters<typeof ShotChart>[0]['shots']} />
+            ) : (
+              <div className="text-center py-8 text-gray-600 text-sm">
+                No shot data available yet
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right: Metrics + Contract */}

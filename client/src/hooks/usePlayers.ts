@@ -61,3 +61,11 @@ export function usePlayerContract(id: string) {
     enabled: !!id,
   })
 }
+
+export function usePlayerShotChart(id: string, filters: Record<string, string> = {}) {
+  return useQuery({
+    queryKey: playerKeys.shotchart(id, filters),
+    queryFn: () => playersService.getShotChart(id, filters).then((r) => r.data),
+    enabled: !!id,
+  })
+}

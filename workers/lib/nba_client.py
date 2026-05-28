@@ -68,9 +68,14 @@ def get_league_team_stats(season: str) -> list[dict]:
 
 
 def get_shot_chart(player_id: int, season: str, game_id: str | None = None) -> list[dict]:
-    kwargs = dict(player_id=player_id, season=season, context_measure_simple='FGA')
+    kwargs: dict = {
+        'team_id': 0,
+        'player_id': player_id,
+        'context_measure_simple': 'FGA',
+        'season_nullable': season,
+    }
     if game_id:
-        kwargs['game_id'] = game_id
+        kwargs['game_id_nullable'] = game_id
     result = _call(shotchartdetail.ShotChartDetail, **kwargs)
     return result.get_data_frames()[0].to_dict('records')
 
