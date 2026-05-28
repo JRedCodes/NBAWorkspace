@@ -12,12 +12,16 @@ export function cacheMiddleware(ttlSeconds: number) {
         return
       }
     } catch {
-      // Cache miss on error — continue to handler
+      // Redis unavailable — continue to handler
     }
 
     const originalJson = res.json.bind(res)
     res.json = (body) => {
-      redis.setex(key, ttlSeconds, JSON.stringify(body)).catch(console.error)
+      try {
+        redis.setex(key, ttlSeconds, JSON.stringify(body)).catch(() => {})
+      } catch {
+        // Redis unavailable — response still sent, just not cached
+      }
       return originalJson(body)
     }
     next()
