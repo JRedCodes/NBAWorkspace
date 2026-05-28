@@ -35,7 +35,9 @@ export default function PlayerView() {
 
   if (!player) return null
 
-  const latestStats = stats?.[0]
+  const CURRENT_SEASON = '2025-26'
+  const latestStats = stats?.find((s) => s.season_year === CURRENT_SEASON) ?? stats?.[0]
+  const isCurrentSeason = latestStats?.season_year === CURRENT_SEASON
   const chartData = stats?.slice().reverse().map((s) => ({
     season: s.season_year,
     pts: s.points,
@@ -75,8 +77,13 @@ export default function PlayerView() {
           {/* Current season stats */}
           {latestStats && (
             <div className="bg-gray-800 rounded-lg p-4">
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                 {latestStats.season_year} Season
+                {!isCurrentSeason && (
+                  <span className="text-xs text-yellow-500 normal-case font-normal">
+                    most recent available
+                  </span>
+                )}
               </h2>
               <div className="grid grid-cols-4 gap-3 text-center">
                 {[
