@@ -16,8 +16,8 @@ client = redis_lib.from_url(
     REDIS_URL,
     decode_responses=True,
     ssl_cert_reqs=None,
-    socket_connect_timeout=1,
-    socket_timeout=1,
+    socket_connect_timeout=0.1,
+    socket_timeout=0.1,
 )
 
 

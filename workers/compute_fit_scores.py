@@ -103,7 +103,7 @@ def run():
         for team in teams:
             tid = team['id']
             needs = team_needs.get(tid, {cat: 50.0 for cat in NEED_CATEGORIES})
-            fit_cache[tid] = compute_fit(pm, needs)
+            fit_cache[str(tid)] = compute_fit(pm, needs)
 
         execute("""
             UPDATE player_computed_metrics

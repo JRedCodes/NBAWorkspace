@@ -16,8 +16,24 @@ logger = logging.getLogger(__name__)
 CURRENT_SEASON = '2024-25'
 
 
+def to_float(value) -> float | None:
+    """Convert Decimal/np.float64/etc to native Python float."""
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def floatify(row: dict) -> dict:
+    """Cast all numeric values in a DB row to native Python float."""
+    skip = {'id', 'player_id', 'player_db_id', 'season_year', 'position', 'birth_date', 'data_completeness'}
+    return {k: (to_float(v) if k not in skip else v) for k, v in row.items()}
+
+
 def fetch_all_stats() -> list[dict]:
-    return fetchall("""
+    rows = fetchall("""
         SELECT
             pss.*,
             p.id as player_db_id,
@@ -29,6 +45,7 @@ def fetch_all_stats() -> list[dict]:
         WHERE pss.season_year = :season
           AND pss.games_played >= 5
     """, {'season': CURRENT_SEASON})
+    return [floatify(r) for r in rows]
 
 
 def compute_three_point_percentile(row: dict, all_values: list[float]) -> float:
@@ -107,13 +124,13 @@ def run():
 
         try:
             metrics = {
-                'three_point_percentile': compute_three_point_percentile(filled, three_values),
-                'rim_protection_score': compute_rim_protection(filled, all_stats),
-                'playmaking_score': compute_playmaking(filled, all_stats),
-                'slashing_score': compute_slashing(filled, all_stats),
-                'rebounding_percentile': compute_rebounding_percentile(filled, all_stats),
-                'poa_defense_score': compute_poa_defense(filled, all_stats),
-                'leadership_index': compute_leadership_index(filled),
+                'three_point_percentile': float(compute_three_point_percentile(filled, three_values)),
+                'rim_protection_score': float(compute_rim_protection(filled, all_stats)),
+                'playmaking_score': float(compute_playmaking(filled, all_stats)),
+                'slashing_score': float(compute_slashing(filled, all_stats)),
+                'rebounding_percentile': float(compute_rebounding_percentile(filled, all_stats)),
+                'poa_defense_score': float(compute_poa_defense(filled, all_stats)),
+                'leadership_index': float(compute_leadership_index(filled)),
                 'data_completeness': completeness,
             }
 

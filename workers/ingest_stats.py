@@ -11,7 +11,8 @@ from lib.nba_client import (
     get_league_team_stats,
     get_standings,
 )
-from lib.cache import invalidate_player, invalidate_team
+# Cache invalidation skipped in ingest_stats — Redis unreachable from Python workers
+# in this dev environment. Stats cache expires naturally via TTL (6h).
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
@@ -102,7 +103,6 @@ def ingest_player_stats(player_id_map: dict):
             'vorp': None,
         })
 
-        invalidate_player(db_pid)
         ingested += 1
 
     logger.info(f'Player stats ingested: {ingested}')
@@ -150,8 +150,6 @@ def ingest_team_stats(team_id_map: dict):
             'losses': s.get('LOSSES', 0),
             'seed': s.get('PlayoffRank'),
         })
-
-        invalidate_team(db_tid)
 
     logger.info(f'Team stats ingested: {len(team_stats)}')
 
