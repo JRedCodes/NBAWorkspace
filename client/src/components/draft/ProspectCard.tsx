@@ -25,6 +25,7 @@ interface Props {
   rank: number
   isDraggable?: boolean
   isModel?: boolean
+  dimmed?: boolean
 }
 
 function ScoreDot({ value }: { value: number | null }) {
@@ -43,7 +44,7 @@ function heightDisplay(inches: number | null) {
   return `${ft}'${inn}"`
 }
 
-export function ProspectCard({ prospect, rank, isDraggable = false, isModel = false }: Props) {
+export function ProspectCard({ prospect, rank, isDraggable = false, isModel = false, dimmed = false }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: prospect.id,
     disabled: !isDraggable,
@@ -52,7 +53,7 @@ export function ProspectCard({ prospect, rank, isDraggable = false, isModel = fa
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.5 : dimmed ? 0.45 : 1,
   }
 
   return (
