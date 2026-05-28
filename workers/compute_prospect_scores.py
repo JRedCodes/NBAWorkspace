@@ -11,7 +11,7 @@ from lib.fallback import safe_percentile
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 
-DRAFT_YEAR = 2025
+DRAFT_YEAR = 2026
 
 
 def run():
