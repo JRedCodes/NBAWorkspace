@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTeam, useRoster, useTeamStats, useTeamNeeds, useTeamCap, useTeamPicks } from '../../hooks/useTeams'
 import { NeedsRadar } from '../../components/league/NeedsRadar'
+import { PlayerAvatar } from '../../components/ui/PlayerAvatar'
 import { formatSalary } from '../../utils/format'
 
 export default function TeamView() {
@@ -57,7 +58,12 @@ export default function TeamView() {
                   className="w-full flex items-center justify-between px-3 py-2 rounded hover:bg-gray-700 transition-colors text-left"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-500 w-6 text-right">{player.jersey_number as string}</span>
+                    <PlayerAvatar
+                      nbaPlayerId={player.nba_player_id as number}
+                      name={`${player.first_name} ${player.last_name}`}
+                      size="sm"
+                    />
+                    <span className="text-xs text-gray-500 w-5 text-right shrink-0">{player.jersey_number as string}</span>
                     <span className="text-white text-sm">{player.first_name as string} {player.last_name as string}</span>
                     <span className="text-xs text-gray-500">{player.position as string}</span>
                   </div>

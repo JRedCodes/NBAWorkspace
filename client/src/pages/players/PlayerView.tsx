@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { usePlayer, usePlayerStats, usePlayerMetrics, usePlayerContract } from '../../hooks/usePlayers'
 import { PercentileBar } from '../../components/player/PercentileBar'
+import { PlayerAvatar } from '../../components/ui/PlayerAvatar'
 import { formatSalary } from '../../utils/format'
 import type { PlayerMetrics } from '../../types'
 
@@ -48,10 +49,15 @@ export default function PlayerView() {
       <div className="flex items-center gap-4">
         <button
           onClick={() => navigate(-1)}
-          className="text-gray-500 hover:text-gray-300 text-sm"
+          className="text-gray-500 hover:text-gray-300 text-sm shrink-0"
         >
           ←
         </button>
+        <PlayerAvatar
+          nbaPlayerId={player.nba_player_id}
+          name={`${player.first_name} ${player.last_name}`}
+          size="xl"
+        />
         <div>
           <h1 className="text-2xl font-bold text-white">
             {player.first_name} {player.last_name}
