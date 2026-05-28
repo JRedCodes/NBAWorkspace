@@ -16,7 +16,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { ProspectCard, type Prospect } from '../../components/draft/ProspectCard'
-import { useProspects, useDraftBoards, useDraftBoard, useCreateBoard, useReplaceRankings } from '../../hooks/useDraft'
+import { useProspects, useDraftBoards, useDraftBoard, useCreateBoard, useReplaceRankings, useResetBoard } from '../../hooks/useDraft'
 
 function ScoreHeader({ label, short }: { label: string; short: string }) {
   return (
@@ -44,6 +44,13 @@ export default function DraftBoard() {
 
   const { data: boardEntries = [] } = useDraftBoard(activeBoardId)
   const saveRankings = useReplaceRankings(activeBoardId)
+  const resetBoard = useResetBoard()
+
+  // Detect if board has entries from a different draft year (stale data)
+  const prospect2026Ids = new Set((allProspects as Prospect[]).map((p) => p.id))
+  const hasStaleBoardData =
+    localRankings.length > 0 &&
+    localRankings.every((p) => !prospect2026Ids.has(p.id))
 
   // Auto-select first board or create one
   useEffect(() => {
@@ -163,6 +170,18 @@ export default function DraftBoard() {
             <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">My Board</h2>
             <span className="text-xs text-gray-500">grip (⠿) to drag</span>
           </div>
+          {hasStaleBoardData && (
+            <div className="flex items-center justify-between px-3 py-2 mb-2 bg-yellow-950/50 border border-yellow-700 rounded-lg text-xs">
+              <span className="text-yellow-400">This board has 2025 draft class entries</span>
+              <button
+                onClick={() => resetBoard.mutate(activeBoardId)}
+                disabled={resetBoard.isPending}
+                className="text-yellow-300 hover:text-white font-medium disabled:opacity-50 ml-2"
+              >
+                {resetBoard.isPending ? 'Resetting…' : 'Reset to 2026 class'}
+              </button>
+            </div>
+          )}
           {localRankings.length === 0 ? (
             <div className="text-center py-8 text-gray-600 text-sm border border-gray-700 border-dashed rounded-lg">
               Create a board to start ranking

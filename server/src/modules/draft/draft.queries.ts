@@ -120,6 +120,12 @@ export const draftQueries = {
       .update(data)
   },
 
+  async resetBoard(boardId: string, draftYear = 2026): Promise<void> {
+    await db('draft_board_entries').where({ board_id: boardId }).delete()
+    await this.seedBoardWithModelRanks(boardId, draftYear)
+    await db('draft_boards').where({ id: boardId }).update({ updated_at: db.fn.now() })
+  },
+
   deleteBoard(id: string) {
     return db('draft_boards').where({ id }).delete()
   },
