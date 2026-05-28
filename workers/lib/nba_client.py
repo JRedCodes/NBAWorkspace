@@ -2,7 +2,6 @@ import time
 import logging
 from nba_api.stats.endpoints import (
     commonteamroster,
-    playercareerstats,
     leaguedashplayerstats,
     leaguedashteamstats,
     shotchartdetail,
@@ -35,11 +34,6 @@ def get_team_roster(team_id: int, season: str) -> list[dict]:
     return result.get_data_frames()[0].to_dict('records')
 
 
-def get_player_career_stats(player_id: int) -> list[dict]:
-    result = _call(playercareerstats.PlayerCareerStats, player_id=player_id)
-    return result.get_data_frames()[0].to_dict('records')
-
-
 def get_player_info(player_id: int) -> dict:
     result = _call(commonplayerinfo.CommonPlayerInfo, player_id=player_id)
     rows = result.get_data_frames()[0].to_dict('records')
@@ -50,7 +44,7 @@ def get_league_player_stats(season: str, per_mode: str = 'PerGame') -> list[dict
     result = _call(
         leaguedashplayerstats.LeagueDashPlayerStats,
         season=season,
-        per_mode_simple=per_mode,
+        per_mode_detailed=per_mode,
     )
     return result.get_data_frames()[0].to_dict('records')
 
@@ -59,7 +53,7 @@ def get_league_player_stats_advanced(season: str) -> list[dict]:
     result = _call(
         leaguedashplayerstats.LeagueDashPlayerStats,
         season=season,
-        measure_type_simple='Advanced',
+        measure_type_detailed_defense='Advanced',
     )
     return result.get_data_frames()[0].to_dict('records')
 
@@ -68,7 +62,7 @@ def get_league_team_stats(season: str) -> list[dict]:
     result = _call(
         leaguedashteamstats.LeagueDashTeamStats,
         season=season,
-        measure_type_simple='Advanced',
+        measure_type_detailed_defense='Advanced',
     )
     return result.get_data_frames()[0].to_dict('records')
 

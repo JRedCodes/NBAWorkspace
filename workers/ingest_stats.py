@@ -96,8 +96,9 @@ def ingest_player_stats(player_id_map: dict):
             'usage_rate': adv.get('USG_PCT'),
             'offensive_rating': adv.get('OFF_RATING'),
             'defensive_rating': adv.get('DEF_RATING'),
-            'win_shares': adv.get('W'),
-            'box_plus_minus': adv.get('NET_RATING'),
+            # win_shares, box_plus_minus, vorp are BBRef stats — not available from nba_api
+            'win_shares': None,
+            'box_plus_minus': None,
             'vorp': None,
         })
 

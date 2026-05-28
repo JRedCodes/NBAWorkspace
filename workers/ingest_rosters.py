@@ -4,9 +4,8 @@ Runs every 6h via BullMQ. Triggers detect_drift.py on completion.
 """
 import sys
 import logging
-from datetime import date
 from lib.db import fetchall, execute
-from lib.nba_client import get_team_roster, get_player_info
+from lib.nba_client import get_team_roster
 from lib.cache import invalidate_team
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
@@ -15,59 +14,83 @@ logger = logging.getLogger(__name__)
 CURRENT_SEASON = '2024-25'
 
 
+def parse_height_inches(height_str) -> int | None:
+    """Parse '6-10' format to total inches."""
+    if not height_str:
+        return None
+    try:
+        feet, inches = str(height_str).split('-')
+        return int(feet) * 12 + int(inches)
+    except Exception:
+        return None
+
+
+def parse_weight(weight_str) -> int | None:
+    try:
+        return int(float(str(weight_str))) if weight_str else None
+    except (ValueError, TypeError):
+        return None
+
+
 def get_db_teams() -> list[dict]:
     return fetchall('SELECT id, nba_team_id, abbreviation FROM teams')
 
 
-def upsert_player(nba_player_id: int, team_db_id: str, roster_row: dict) -> str:
-    info = get_player_info(nba_player_id)
+def upsert_player(nba_player_id: int, team_db_id: str, row: dict) -> str | None:
+    # CommonTeamRoster columns: PLAYER (full name), NUM, POSITION, HEIGHT, WEIGHT, BIRTH_DATE
+    full_name = str(row.get('PLAYER') or '')
+    parts = full_name.split(' ', 1)
+    first_name = parts[0] if parts else ''
+    last_name = parts[1] if len(parts) > 1 else ''
 
     execute("""
         INSERT INTO players (nba_player_id, team_id, first_name, last_name, position,
-            jersey_number, status)
+            jersey_number, height_inches, weight_lbs, birth_date, status)
         VALUES (:nba_player_id, :team_id, :first_name, :last_name, :position,
-            :jersey_number, 'active')
+            :jersey_number, :height_inches, :weight_lbs, :birth_date, 'active')
         ON CONFLICT (nba_player_id) DO UPDATE SET
             team_id = EXCLUDED.team_id,
+            first_name = EXCLUDED.first_name,
+            last_name = EXCLUDED.last_name,
             position = EXCLUDED.position,
             jersey_number = EXCLUDED.jersey_number,
+            height_inches = EXCLUDED.height_inches,
+            weight_lbs = EXCLUDED.weight_lbs,
+            birth_date = EXCLUDED.birth_date,
             status = 'active',
             updated_at = now()
     """, {
         'nba_player_id': nba_player_id,
         'team_id': team_db_id,
-        'first_name': roster_row.get('PLAYER_FIRST_NAME') or info.get('FIRST_NAME', ''),
-        'last_name': roster_row.get('PLAYER_LAST_NAME') or info.get('LAST_NAME', ''),
-        'position': roster_row.get('POSITION', ''),
-        'jersey_number': str(roster_row.get('NUM', '')),
+        'first_name': first_name,
+        'last_name': last_name,
+        'position': row.get('POSITION') or '',
+        'jersey_number': str(row.get('NUM') or ''),
+        'height_inches': parse_height_inches(row.get('HEIGHT')),
+        'weight_lbs': parse_weight(row.get('WEIGHT')),
+        'birth_date': row.get('BIRTH_DATE') or None,
     })
 
-    row = fetchall(
-        'SELECT id FROM players WHERE nba_player_id = :nba_player_id',
-        {'nba_player_id': nba_player_id}
+    result = fetchall(
+        'SELECT id FROM players WHERE nba_player_id = :id',
+        {'id': nba_player_id}
     )
-    return row[0]['id'] if row else None
+    return result[0]['id'] if result else None
 
 
-def upsert_contract(player_db_id: str, team_db_id: str, roster_row: dict):
-    salary_str = str(roster_row.get('SALARY', '') or '').replace('$', '').replace(',', '')
-    try:
-        salary = int(float(salary_str)) if salary_str else 0
-    except ValueError:
-        salary = 0
-
+def upsert_contract(player_db_id: str, team_db_id: str):
+    # Salary not available in CommonTeamRoster — placeholder record, $0 salary.
+    # Actual salary values require a separate Spotrac/BBRef integration.
     execute("""
         INSERT INTO contracts (player_id, team_id, years_remaining, annual_value,
             current_year_salary)
-        VALUES (:player_id, :team_id, 1, :salary, :salary)
+        VALUES (:player_id, :team_id, 1, 0, 0)
         ON CONFLICT (player_id) DO UPDATE SET
             team_id = EXCLUDED.team_id,
-            current_year_salary = EXCLUDED.current_year_salary,
             updated_at = now()
     """, {
         'player_id': player_db_id,
         'team_id': team_db_id,
-        'salary': salary,
     })
 
 
@@ -91,9 +114,9 @@ def run():
             if not nba_player_id:
                 continue
             try:
-                player_db_id = upsert_player(nba_player_id, team_db_id, row)
+                player_db_id = upsert_player(int(nba_player_id), team_db_id, row)
                 if player_db_id:
-                    upsert_contract(player_db_id, team_db_id, row)
+                    upsert_contract(player_db_id, team_db_id)
             except Exception as e:
                 logger.error(f'Failed to upsert player {nba_player_id}: {e}')
 
