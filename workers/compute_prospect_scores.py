@@ -1,7 +1,9 @@
 """
 Computes model scores for all prospects.
-Triggered by ingest_prospects.py.
-Scores are normalized 0–100 based on measurables + draft position signal.
+Overall score = pick-position percentile among drafted prospects (picks 1-60).
+This is honest: the score reflects consensus draft position, not a pretend
+composite of incomplete measurables. Combine measurements (size, wingspan)
+are stored as supplementary info but don't inflate the overall.
 """
 import sys
 import logging
@@ -12,11 +14,19 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 DRAFT_YEAR = 2026
+MAX_DRAFT_PICK = 60  # real drafts have 60 picks
+
+
+def pick_score(pick: int) -> float:
+    """Linear score: pick 1 → 99, pick 60 → 1.7, pick 61+ → < 1."""
+    if pick <= MAX_DRAFT_PICK:
+        return round(100 - (pick - 1) * (98.3 / (MAX_DRAFT_PICK - 1)), 1)
+    return round(max(0, 1 - (pick - MAX_DRAFT_PICK) * 0.1), 1)
 
 
 def run():
     prospects = fetchall(
-        'SELECT * FROM prospects WHERE draft_year = :year',
+        'SELECT * FROM prospects WHERE draft_year = :year AND projected_pick IS NOT NULL',
         {'year': DRAFT_YEAR},
     )
     if not prospects:
@@ -28,43 +38,26 @@ def run():
     heights = [float(p['height_inches']) for p in prospects if p.get('height_inches')]
     wingspans = [float(p['wingspan_inches']) for p in prospects if p.get('wingspan_inches')]
     weights = [float(p['weight_lbs']) for p in prospects if p.get('weight_lbs')]
-    picks = [int(p['projected_pick']) for p in prospects if p.get('projected_pick')]
 
     for p in prospects:
+        pick = int(p['projected_pick'])
         height = float(p['height_inches']) if p.get('height_inches') else None
         wingspan = float(p['wingspan_inches']) if p.get('wingspan_inches') else None
         weight = float(p['weight_lbs']) if p.get('weight_lbs') else None
-        pick = int(p['projected_pick']) if p.get('projected_pick') else 30
 
-        # Size score — height + wingspan percentile
-        height_pct = safe_percentile(height, heights)
-        wingspan_pct = safe_percentile(wingspan, wingspans)
-        size_score = (height_pct * 0.5 + wingspan_pct * 0.5) if height and wingspan else height_pct
+        overall = pick_score(pick)
 
-        # Upside score — inverse of pick position (lower pick = more upside)
-        pick_pct = safe_percentile(pick, picks, default=50.0)
-        upside_score = 100 - pick_pct  # top picks have highest upside
+        # Supplementary measurements — stored separately, not mixed into overall
+        size_score = safe_percentile(
+            (height or 0) + (wingspan or 0),
+            [(h or 0) + (w or 0) for h, w in zip(heights, wingspans)],
+            default=50.0,
+        ) if height or wingspan else 50.0
+        height_pct = safe_percentile(height, heights) if height else 50.0
+        wingspan_pct = safe_percentile(wingspan, wingspans) if wingspan else 50.0
+        weight_pct = safe_percentile(weight, weights) if weight else 50.0
 
-        # Readiness score — weight relative to position
-        weight_pct = safe_percentile(weight, weights)
-        readiness_score = weight_pct
-
-        # Shooting score — placeholder (needs college stats)
-        shooting_score = max(0, 70 - (pick - 1) * 0.8)  # rough draft position proxy
-
-        # Defense score — wingspan-based proxy
-        defense_score = wingspan_pct if wingspan else 50.0
-
-        # Overall — weighted composite
-        overall = (
-            upside_score * 0.35 +
-            size_score * 0.20 +
-            shooting_score * 0.20 +
-            defense_score * 0.15 +
-            readiness_score * 0.10
-        )
-
-        completeness = 'full' if (height and wingspan and weight) else 'partial'
+        completeness = 'full' if (height and wingspan and weight) else 'partial' if (height or wingspan) else 'limited'
 
         execute("""
             INSERT INTO prospect_computed_scores (
@@ -89,11 +82,11 @@ def run():
                 computed_at = now(), updated_at = now()
         """, {
             'pid': p['id'],
-            'shooting': round(float(shooting_score), 1),
+            'shooting': round(float(height_pct), 1),    # repurpose as height pct
             'size': round(float(size_score), 1),
-            'defense': round(float(defense_score), 1),
-            'upside': round(float(upside_score), 1),
-            'readiness': round(float(readiness_score), 1),
+            'defense': round(float(wingspan_pct), 1),   # wingspan pct
+            'upside': round(float(overall), 1),          # pick-based upside
+            'readiness': round(float(weight_pct), 1),
             'overall': round(float(overall), 1),
             'rank': pick,
             'completeness': completeness,
