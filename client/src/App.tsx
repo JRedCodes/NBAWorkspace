@@ -8,6 +8,8 @@ import Home from './pages/home/Home'
 import LeagueView from './pages/league/LeagueView'
 import TeamView from './pages/league/TeamView'
 import PlayerView from './pages/players/PlayerView'
+import TradingBlock from './pages/trade/TradingBlock'
+import TradeMachine from './pages/trade/TradeMachine'
 
 function AuthenticatedLayout() {
   useWorkerUpdates()
@@ -31,7 +33,8 @@ export default function App() {
           <Route path="/league" element={<LeagueView />} />
           <Route path="/league/team/:teamId" element={<TeamView />} />
           <Route path="/players/:playerId" element={<PlayerView />} />
-          <Route path="/trade" element={<div className="p-8 text-gray-400">Trading Block — Phase 3</div>} />
+          <Route path="/trade" element={<TradingBlock />} />
+          <Route path="/trade/machine" element={<TradeMachine />} />
           <Route path="/draft" element={<div className="p-8 text-gray-400">Draft Board — Phase 5</div>} />
           <Route path="/simulation" element={<div className="p-8 text-gray-400">Simulation — Phase 6</div>} />
         </Route>
