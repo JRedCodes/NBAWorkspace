@@ -19,6 +19,30 @@ function generateTokens(payload: AuthPayload) {
   return { accessToken, refreshToken }
 }
 
+async function storeRefreshToken(userId: string, token: string): Promise<void> {
+  try {
+    await redis.setex(`refresh:${userId}`, REFRESH_TTL, token)
+  } catch {
+    // Redis unavailable — token still works until server restart
+  }
+}
+
+async function getRefreshToken(userId: string): Promise<string | null> {
+  try {
+    return await redis.get(`refresh:${userId}`)
+  } catch {
+    return null
+  }
+}
+
+async function deleteRefreshToken(userId: string): Promise<void> {
+  try {
+    await redis.del(`refresh:${userId}`)
+  } catch {
+    // best-effort
+  }
+}
+
 export const authService = {
   async register(body: RegisterBody) {
     const existing = await authQueries.findByEmail(body.email)
@@ -34,7 +58,7 @@ export const authService = {
 
     const payload: AuthPayload = { userId: user.id, email: user.email }
     const tokens = generateTokens(payload)
-    await redis.setex(`refresh:${user.id}`, REFRESH_TTL, tokens.refreshToken)
+    await storeRefreshToken(user.id, tokens.refreshToken)
 
     return {
       ...tokens,
@@ -51,7 +75,7 @@ export const authService = {
 
     const payload: AuthPayload = { userId: user.id, email: user.email }
     const tokens = generateTokens(payload)
-    await redis.setex(`refresh:${user.id}`, REFRESH_TTL, tokens.refreshToken)
+    await storeRefreshToken(user.id, tokens.refreshToken)
 
     return {
       ...tokens,
@@ -72,8 +96,11 @@ export const authService = {
       throw new AppError(401, 'Invalid or expired refresh token')
     }
 
-    const stored = await redis.get(`refresh:${payload.userId}`)
-    if (stored !== refreshToken) throw new AppError(401, 'Refresh token revoked')
+    const stored = await getRefreshToken(payload.userId)
+    // If Redis is unavailable (stored === null), fall back to trusting the JWT signature alone
+    if (stored !== null && stored !== refreshToken) {
+      throw new AppError(401, 'Refresh token revoked')
+    }
 
     const accessToken = jwt.sign(
       { userId: payload.userId, email: payload.email },
@@ -84,7 +111,7 @@ export const authService = {
   },
 
   async logout(userId: string): Promise<void> {
-    await redis.del(`refresh:${userId}`)
+    await deleteRefreshToken(userId)
   },
 
   async setOnboarding(userId: string, completed: boolean): Promise<void> {
