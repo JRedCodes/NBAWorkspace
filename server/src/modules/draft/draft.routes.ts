@@ -20,6 +20,7 @@ router.get('/boards/:id', authenticate, draftController.getBoard)
 router.patch('/boards/:id', authenticate, validate(renameBoardSchema), draftController.renameBoard)
 router.put('/boards/:id/rankings', authenticate, validate(replaceRankingsSchema), draftController.replaceRankings)
 router.patch('/boards/:id/prospects/:prospectId', authenticate, validate(updateEntrySchema), draftController.updateEntry)
+router.post('/boards/:id/reset', authenticate, draftController.resetBoard)
 router.delete('/boards/:id', authenticate, draftController.deleteBoard)
 
 export default router

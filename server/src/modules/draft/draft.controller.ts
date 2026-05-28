@@ -53,6 +53,11 @@ export const draftController = {
     res.status(204).send()
   }),
 
+  resetBoard: asyncHandler(async (req: Request, res: Response) => {
+    await draftService.resetBoard(param(req.params.id))
+    res.status(204).send()
+  }),
+
   deleteBoard: asyncHandler(async (req: Request, res: Response) => {
     await draftService.deleteBoard(param(req.params.id))
     res.status(204).send()

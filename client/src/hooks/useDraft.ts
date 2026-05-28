@@ -55,6 +55,14 @@ export function useReplaceRankings(boardId: string) {
   })
 }
 
+export function useResetBoard() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => draftService.resetBoard(id),
+    onSuccess: (_data, id) => qc.invalidateQueries({ queryKey: draftKeys.board(id) }),
+  })
+}
+
 export function useDeleteBoard() {
   const qc = useQueryClient()
   return useMutation({

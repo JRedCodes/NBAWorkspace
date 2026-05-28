@@ -68,26 +68,30 @@ function drawCourt(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.stroke()
 
   // Paint (key box)
+  // FT line = 19 feet from baseline = 190 units from baseline.
+  // Baseline is at LOC_Y = -52, so FT line = -52 + 190 = LOC_Y 138.
   const pL = pt(-80, -52)
   const pR = pt(80, -52)
-  const pTop = pt(80, 190)
+  const pTop = pt(80, 138)
   ctx.strokeRect(pL.cx, pTop.cy, pR.cx - pL.cx, pL.cy - pTop.cy)
 
-  // Free-throw circle (top half only)
-  const ftC = pt(0, 190)
+  // Free-throw circle — center at FT line (LOC_Y 138), radius 60 units = 6 ft
+  // With FT circle top at 138+60=198, well inside the 3PT arc at 237.5
+  const basket = pt(0, 0)
+  const ftC = pt(0, 138)
   ctx.beginPath()
-  ctx.arc(ftC.cx, ftC.cy, 60 * sx, 0, Math.PI, false) // top half — opens toward halfcourt
+  // Solid half: faces the basket (lower half in flipped canvas)
+  ctx.arc(ftC.cx, ftC.cy, 60 * sx, 0, Math.PI, false)
   ctx.stroke()
   ctx.setLineDash([4, 4])
-  ctx.beginPath()
-  ctx.arc(ftC.cx, ftC.cy, 60 * sx, 0, Math.PI, true)  // dashed bottom half
+  // Dashed half: faces halfcourt (upper half in flipped canvas)
+  ctx.arc(ftC.cx, ftC.cy, 60 * sx, 0, Math.PI, true)
   ctx.stroke()
   ctx.setLineDash([])
 
-  // Restricted area arc (48 units radius = 4ft)
-  const basket = pt(0, 0)
+  // Restricted area arc (4 ft radius = 48 units), opens toward halfcourt
   ctx.beginPath()
-  ctx.arc(basket.cx, basket.cy, 48 * sx, Math.PI, 0, false) // opens upward
+  ctx.arc(basket.cx, basket.cy, 48 * sx, Math.PI, 0, true)
   ctx.stroke()
 
   // Backboard

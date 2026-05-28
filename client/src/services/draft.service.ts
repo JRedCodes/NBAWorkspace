@@ -12,5 +12,6 @@ export const draftService = {
     api.put(`/draft/boards/${id}/rankings`, { rankings }),
   updateEntry: (boardId: string, prospectId: string, data: { custom_rank?: number; user_notes?: string }) =>
     api.patch(`/draft/boards/${boardId}/prospects/${prospectId}`, data),
+  resetBoard: (id: string) => api.post(`/draft/boards/${id}/reset`),
   deleteBoard: (id: string) => api.delete(`/draft/boards/${id}`),
 }

@@ -71,6 +71,10 @@ export const draftService = {
     await draftQueries.updateEntry(boardId, prospectId, data)
   },
 
+  async resetBoard(id: string) {
+    await draftQueries.resetBoard(id)
+  },
+
   async deleteBoard(id: string) {
     await draftQueries.deleteBoard(id)
   },
