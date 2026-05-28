@@ -12,6 +12,7 @@ export const draftQueries = {
     const query = db('prospects as p')
       .leftJoin('prospect_computed_scores as s', 'p.id', 's.prospect_id')
       .where('p.draft_year', year)
+      .whereNotNull('p.projected_pick')
       .select(
         'p.*',
         's.shooting_score', 's.size_score', 's.defense_score',
@@ -65,6 +66,7 @@ export const draftQueries = {
       .leftJoin('prospect_computed_scores as s', 'p.id', 's.prospect_id')
       .where('e.board_id', id)
       .where('p.draft_year', draftYear)
+      .whereNotNull('p.projected_pick')
       .select(
         'e.id as entry_id', 'e.custom_rank', 'e.model_rank', 'e.user_notes',
         'p.*',
@@ -85,6 +87,7 @@ export const draftQueries = {
     const prospects = await db('prospects as p')
       .leftJoin('prospect_computed_scores as s', 'p.id', 's.prospect_id')
       .where('p.draft_year', draftYear)
+      .whereNotNull('p.projected_pick')
       .orderBy(db.raw('COALESCE(s.model_rank, p.projected_pick, 999)'))
       .select('p.id', db.raw('COALESCE(s.model_rank, p.projected_pick, 999) as rank'))
 
