@@ -59,11 +59,12 @@ export const draftQueries = {
       .select('id', 'name', 'is_model_default', 'created_at', 'updated_at')
   },
 
-  getBoardWithEntries(id: string) {
+  getBoardWithEntries(id: string, draftYear = 2026) {
     return db('draft_board_entries as e')
       .join('prospects as p', 'e.prospect_id', 'p.id')
       .leftJoin('prospect_computed_scores as s', 'p.id', 's.prospect_id')
       .where('e.board_id', id)
+      .where('p.draft_year', draftYear)
       .select(
         'e.id as entry_id', 'e.custom_rank', 'e.model_rank', 'e.user_notes',
         'p.*',
