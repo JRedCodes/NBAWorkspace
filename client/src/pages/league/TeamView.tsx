@@ -1,8 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTeam, useRoster, useTeamStats, useTeamNeeds, useTeamCap, useTeamPicks } from '../../hooks/useTeams'
 import { NeedsRadar } from '../../components/league/NeedsRadar'
+import { TradeProjectionBanner } from '../../components/trade/TradeProjectionBanner'
 import { PlayerAvatar } from '../../components/ui/PlayerAvatar'
 import { formatSalary } from '../../utils/format'
+import { useTradeProjection } from '../../hooks/useTradeProjection'
 
 export default function TeamView() {
   const { teamId } = useParams<{ teamId: string }>()
@@ -14,6 +16,7 @@ export default function TeamView() {
   const { data: needs } = useTeamNeeds(teamId!)
   const { data: cap } = useTeamCap(teamId!)
   const { data: picks } = useTeamPicks(teamId!)
+  const projection = useTradeProjection(teamId!)
 
   if (isLoading) {
     return (
@@ -44,6 +47,18 @@ export default function TeamView() {
           <p className="text-gray-400 text-sm">{team.conference}ern Conference · {team.division} Division · {record}</p>
         </div>
       </div>
+
+      {/* Trade projection overlay */}
+      {projection && (
+        <TradeProjectionBanner
+          playersOut={projection.playersOut}
+          playersIn={projection.playersIn}
+          projectedPayroll={projection.projectedPayroll}
+          netChange={projection.netChange}
+          isValid={projection.isValid}
+          violations={projection.violations}
+        />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Roster */}
