@@ -9,5 +9,6 @@ export const tradeService = {
   createScenario: (payload: unknown) => api.post('/trade/scenarios', payload),
   updateScenario: (id: string, payload: unknown) => api.patch(`/trade/scenarios/${id}`, payload),
   duplicateScenario: (id: string) => api.post(`/trade/scenarios/${id}/duplicate`),
+  getScenarioLegs: (id: string) => api.get(`/trade/scenarios/${id}/legs`),
   deleteScenario: (id: string) => api.delete(`/trade/scenarios/${id}`),
 }

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useScenarios, useDeleteScenario } from '../../hooks/useTrade'
+import { useScenarios, useDeleteScenario, useActivateScenario, useDeactivateScenario } from '../../hooks/useTrade'
 import { useTradeStore } from '../../store/tradeStore'
+import { useWorkspaceStore } from '../../store/workspaceStore'
 import type { TradeScenario } from '../../types'
 
 function formatDate(d: string) {
@@ -13,6 +14,9 @@ export default function TradingBlock() {
   const clearTrade = useTradeStore((s) => s.clearTrade)
   const { data: scenarios = [], isLoading } = useScenarios()
   const deleteScenario = useDeleteScenario()
+  const activateScenario = useActivateScenario()
+  const deactivateScenario = useDeactivateScenario()
+  const activeScenarioId = useWorkspaceStore((s) => s.activeScenarioId)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   function handleNewTrade() {
@@ -53,36 +57,48 @@ export default function TradingBlock() {
           <div className="space-y-2">
             {scenarios.map((s: TradeScenario) => (
               <div
-                key={s.id as string}
-                className="bg-gray-800 border border-gray-700 hover:border-gray-600 rounded-lg p-4 flex items-center gap-4 transition-colors"
+                key={s.id}
+                className={`border rounded-lg p-4 flex items-center gap-4 transition-colors ${
+                  activeScenarioId === s.id
+                    ? 'bg-blue-950/50 border-blue-700'
+                    : 'bg-gray-800 border-gray-700 hover:border-gray-600'
+                }`}
               >
-                {/* Validity badge */}
+                {/* Active/validity badge */}
                 <div className={`w-2 h-2 rounded-full shrink-0 ${
+                  activeScenarioId === s.id ? 'bg-blue-400' :
                   s.has_drift ? 'bg-yellow-400' :
                   s.is_valid === true ? 'bg-green-400' :
                   s.is_valid === false ? 'bg-red-400' : 'bg-gray-600'
                 }`} />
 
                 <div className="flex-1 min-w-0">
-                  <button
-                    onClick={() => navigate(`/trade/machine`)}
-                    className="text-white font-medium hover:text-blue-400 transition-colors text-left"
-                  >
-                    {s.name}
-                  </button>
+                  <p className="text-white font-medium">{s.name}</p>
                   <p className="text-xs text-gray-500 mt-0.5">
                     {s.saved_at ? `Saved ${formatDate(s.saved_at)}` : `Draft · ${formatDate(s.updated_at)}`}
+                    {activeScenarioId === s.id && <span className="ml-2 text-blue-400">● Active in workspace</span>}
                     {s.has_drift && <span className="ml-2 text-yellow-500">⚠ Drift detected</span>}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => navigate('/trade/machine')}
-                    className="text-xs text-gray-500 hover:text-white transition-colors px-2 py-1 rounded hover:bg-gray-700"
-                  >
-                    Open
-                  </button>
+                  {activeScenarioId === s.id ? (
+                    <button
+                      onClick={() => deactivateScenario()}
+                      className="text-xs text-blue-400 hover:text-gray-300 transition-colors px-2 py-1 rounded bg-blue-900/40 hover:bg-gray-700"
+                    >
+                      Deactivate
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => activateScenario.mutate(s.id)}
+                      disabled={activateScenario.isPending}
+                      className="text-xs text-gray-400 hover:text-white transition-colors px-2 py-1 rounded hover:bg-gray-700 disabled:opacity-50"
+                      title="Load this scenario into the workspace — team views will show projected state"
+                    >
+                      {activateScenario.isPending ? 'Loading…' : 'Activate'}
+                    </button>
+                  )}
                   {confirmDelete === s.id ? (
                     <div className="flex gap-1">
                       <button

@@ -138,7 +138,13 @@ export const tradeService = {
       snapshotRoster,
       snapshotContracts,
       snapshotPicks,
+      body.players,  // persist legs so scenario can be reloaded
     )
+  },
+
+  async getScenarioLegs(id: string, userId: string) {
+    await tradeService.getScenario(id, userId) // verify ownership
+    return tradeQueries.getScenarioLegs(id)
   },
 
   async updateScenario(id: string, data: { name?: string }, userId: string) {
