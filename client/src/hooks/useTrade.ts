@@ -9,32 +9,29 @@ export const tradeKeys = {
   scenario: (id: string) => ['trade', 'scenarios', id] as const,
 }
 
-export function useValidateTrade() {
-  const players = useTradeStore((s) => s.players)
-  const picks = useTradeStore((s) => s.picks)
-  const markFresh = useTradeStore((s) => s.markProjectionFresh)
+interface TradeLegPayload {
+  playerId: string
+  fromTeamId: string
+  toTeamId: string
+}
 
+interface PickLegPayload {
+  pickId: string
+  fromTeamId: string
+  toTeamId: string
+}
+
+export function useValidateTrade() {
   return useMutation({
-    mutationFn: () =>
-      tradeService.validate({
-        players: players.map((p) => ({
-          playerId: p.playerId,
-          fromTeamId: p.fromTeamId,
-          toTeamId: p.toTeamId,
-        })),
-        picks: picks.map((p) => ({
-          pickId: p.pickId,
-          fromTeamId: p.fromTeamId,
-          toTeamId: p.toTeamId,
-        })),
-      }).then((r) => r.data as TradeValidationResult),
-    onSuccess: () => markFresh(),
+    mutationFn: (payload: { players: TradeLegPayload[]; picks?: PickLegPayload[] }) =>
+      tradeService.validate(payload).then((r) => r.data as TradeValidationResult),
   })
 }
 
 export function useProjectTrade() {
-  const players = useTradeStore((s) => s.players)
-  const picks = useTradeStore((s) => s.picks)
+  const workspaceLegs = useWorkspaceStore((s) => s.tradeLegs)
+  const livePlayers = useTradeStore((s) => s.players)
+  const players = workspaceLegs.length > 0 ? workspaceLegs : livePlayers
 
   return useMutation({
     mutationFn: () =>
@@ -44,11 +41,7 @@ export function useProjectTrade() {
           fromTeamId: p.fromTeamId,
           toTeamId: p.toTeamId,
         })),
-        picks: picks.map((p) => ({
-          pickId: p.pickId,
-          fromTeamId: p.fromTeamId,
-          toTeamId: p.toTeamId,
-        })),
+        picks: [],
       }).then((r) => r.data as TradeProjectionResult),
   })
 }
@@ -70,8 +63,9 @@ export function useScenario(id: string) {
 
 export function useCreateScenario() {
   const queryClient = useQueryClient()
-  const players = useTradeStore((s) => s.players)
-  const picks = useTradeStore((s) => s.picks)
+  const workspaceLegs = useWorkspaceStore((s) => s.tradeLegs)
+  const livePlayers = useTradeStore((s) => s.players)
+  const players = workspaceLegs.length > 0 ? workspaceLegs : livePlayers
 
   return useMutation({
     mutationFn: (name: string) =>
@@ -82,11 +76,7 @@ export function useCreateScenario() {
           fromTeamId: p.fromTeamId,
           toTeamId: p.toTeamId,
         })),
-        picks: picks.map((p) => ({
-          pickId: p.pickId,
-          fromTeamId: p.fromTeamId,
-          toTeamId: p.toTeamId,
-        })),
+        picks: [],
       }).then((r) => r.data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: tradeKeys.scenarios }),
   })
