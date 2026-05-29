@@ -24,8 +24,8 @@ function SingleRadar({ data, color, opacity = 0.25 }: {
   opacity?: number
 }) {
   return (
-    <ResponsiveContainer width="100%" height={180}>
-      <RadarChart data={data} margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+    <ResponsiveContainer width="100%" height={200}>
+      <RadarChart data={data} margin={{ top: 16, right: 20, bottom: 16, left: 20 }}>
         <PolarGrid stroke="#2d3748" />
         <PolarAngleAxis dataKey="category" tick={{ fill: '#9CA3AF', fontSize: 10 }} />
         <Radar dataKey="value" stroke={color} fill={color} fillOpacity={opacity} strokeWidth={2} />
