@@ -25,7 +25,7 @@ function TeamLogo({ logo_url, abbreviation, size = 24 }: { logo_url: string | nu
   return <span className="text-xs font-bold text-gray-400 shrink-0" style={{ width: size, textAlign: 'center' as const }}>{abbreviation}</span>
 }
 
-function RoundHeader({ round, jumpRef }: { round: number; jumpRef?: React.RefObject<HTMLDivElement | null> }) {
+function RoundHeader({ round, jumpRef }: { round: number; jumpRef?: React.Ref<HTMLDivElement> }) {
   return (
     <div ref={jumpRef} className="flex items-center gap-2 py-2 mt-2 mb-1">
       <div className="flex-1 h-px bg-gray-700" />
@@ -46,7 +46,8 @@ export default function DraftBoard() {
   const [searchQ, setSearchQ] = useState('')
   const [selectedPick, setSelectedPick] = useState<DraftPick | null>(null)
   const [simulating, setSimulating] = useState(false)
-  const r2Ref = useRef<HTMLDivElement | null>(null)
+  const picksContainerRef = useRef<HTMLDivElement>(null)
+  const r2Ref = useRef<HTMLDivElement>(null)
 
   const picks = draftOrder as DraftPick[]
   const assignedIds = new Set(Object.values(assignments).map((p) => p.id))
@@ -198,7 +199,14 @@ export default function DraftBoard() {
           </div>
 
           <div className="flex gap-1">
-            <button onClick={() => r2Ref.current?.scrollIntoView({ behavior: 'smooth' })}
+            <button
+              onClick={() => {
+                const container = picksContainerRef.current
+                const r2 = r2Ref.current
+                if (container && r2) {
+                  container.scrollTop = r2.offsetTop - container.offsetTop
+                }
+              }}
               className="flex-1 py-1 bg-gray-800 hover:bg-gray-700 text-gray-400 text-xs rounded">
               Jump to R2 ↓
             </button>
@@ -210,7 +218,7 @@ export default function DraftBoard() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+        <div ref={picksContainerRef} className="flex-1 overflow-y-auto p-2 space-y-0.5">
           <RoundHeader round={1} />
           {r1.map((pick) => <PickRow key={pick.pick_id} pick={pick} />)}
           <RoundHeader round={2} jumpRef={r2Ref} />
