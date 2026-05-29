@@ -204,7 +204,11 @@ export default function DraftBoard() {
                 const container = picksContainerRef.current
                 const r2 = r2Ref.current
                 if (container && r2) {
-                  container.scrollTop = r2.offsetTop - container.offsetTop
+                  // getBoundingClientRect gives viewport-relative coords;
+                  // difference + current scrollTop = target scroll position
+                  const containerTop = container.getBoundingClientRect().top
+                  const r2Top = r2.getBoundingClientRect().top
+                  container.scrollTop += r2Top - containerTop
                 }
               }}
               className="flex-1 py-1 bg-gray-800 hover:bg-gray-700 text-gray-400 text-xs rounded">
