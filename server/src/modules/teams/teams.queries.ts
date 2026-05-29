@@ -74,6 +74,7 @@ export const teamsQueries = {
       .where('p.team_id', teamId)
       .where('pcm.season_year', '2025-26')
       .select(
+        'p.id as player_id',
         'pcm.three_point_percentile',
         'pcm.rim_protection_score',
         'pcm.playmaking_score',
@@ -81,6 +82,23 @@ export const teamsQueries = {
         'pcm.rebounding_percentile',
         'pcm.poa_defense_score',
         'pcm.leadership_index',
+      )
+  },
+
+  getPlayerMetricsBatch(playerIds: string[]) {
+    if (playerIds.length === 0) return Promise.resolve([])
+    return db('player_computed_metrics')
+      .whereIn('player_id', playerIds)
+      .where('season_year', '2025-26')
+      .select(
+        'player_id',
+        'three_point_percentile',
+        'rim_protection_score',
+        'playmaking_score',
+        'slashing_score',
+        'rebounding_percentile',
+        'poa_defense_score',
+        'leadership_index',
       )
   },
 

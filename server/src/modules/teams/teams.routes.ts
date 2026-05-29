@@ -16,6 +16,7 @@ router.get('/:teamId/cap/future', cache6h, teamsController.getFutureSalaries)
 router.get('/:teamId/picks', cache6h, teamsController.getPicks)
 router.get('/:teamId/stats', cache6h, teamsController.getStats)
 router.get('/:teamId/needs', cache6h, teamsController.getNeeds)
+router.post('/:teamId/needs/projected', teamsController.getProjectedNeeds)
 router.get('/:teamId/analytics', cache6h, teamsController.getAnalytics)
 
 export default router
