@@ -42,7 +42,6 @@ export const draftQueries = {
       .join('teams as t', 'dp.current_owner_id', 't.id')
       .join('teams as ot', 'dp.original_team_id', 'ot.id')
       .where('dp.draft_year', draftYear)
-      .where('dp.round', 1)
       .whereNotNull('dp.pick_number')
       .select(
         'dp.id as pick_id',
@@ -56,7 +55,9 @@ export const draftQueries = {
         't.city',
         't.logo_url',
         'ot.abbreviation as original_team_abbr',
+        'dp.conveyance_notes',
       )
+      .orderBy('dp.round')
       .orderBy('dp.pick_number')
   },
 
