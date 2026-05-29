@@ -14,6 +14,7 @@ interface DraftPick {
   city: string
   logo_url: string | null
   original_team_abbr: string
+  conveyance_notes: string | null
 }
 
 function TeamLogo({ logo_url, abbreviation, size = 24 }: { logo_url: string | null; abbreviation: string; size?: number }) {
@@ -81,6 +82,7 @@ export default function DraftBoard() {
     const assigned = assignments[pick.pick_id]
     const isMyPick = pick.team_id === myTeamId
     const isSelected = selectedPick?.pick_id === pick.pick_id
+    const isTraded = pick.abbreviation !== pick.original_team_abbr
     return (
       <button
         onClick={() => handlePickClick(pick)}
@@ -90,9 +92,19 @@ export default function DraftBoard() {
         <TeamLogo logo_url={pick.logo_url} abbreviation={pick.abbreviation} size={18} />
         <div className="flex-1 min-w-0">
           {assigned ? (
-            <><p className="text-xs text-white truncate">{assigned.name}</p><p className="text-xs text-gray-500">{assigned.position} · {assigned.school}</p></>
+            <>
+              <p className="text-xs text-white truncate">{assigned.name}</p>
+              <p className="text-xs text-gray-500">{assigned.position} · {assigned.school}</p>
+            </>
           ) : (
-            <p className={'text-xs ' + (isSelected ? 'text-blue-200' : 'text-gray-500')}>{isSelected ? 'Select from right panel →' : <span className="text-gray-600">{pick.city}</span>}</p>
+            <>
+              <p className={'text-xs ' + (isSelected ? 'text-blue-200' : 'text-gray-300')}>
+                {isSelected ? 'Select prospect →' : pick.abbreviation}
+              </p>
+              {isTraded && !assigned && (
+                <p className="text-xs text-yellow-600 truncate">{pick.conveyance_notes}</p>
+              )}
+            </>
           )}
         </div>
         {assigned && <span className="text-xs text-gray-600 hover:text-red-400 shrink-0">×</span>}
