@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useProspects, useDraftOrder } from '../../hooks/useDraft'
 import { useAllTeams } from '../../hooks/useTeams'
+import { useWorkspaceStore } from '../../store/workspaceStore'
 import type { Prospect } from '../../components/draft/ProspectCard'
 
 interface DraftPick {
@@ -40,8 +41,28 @@ export default function DraftBoard() {
   const { data: allProspects = [] } = useProspects({ draftYear: '2026' })
   const { data: allTeams = [] } = useAllTeams()
 
-  const [assignments, setAssignments] = useState<Record<string, Prospect>>({})
-  const [myTeamIds, setMyTeamIds] = useState<Set<string>>(new Set())
+  // Persistent workspace state — survives refresh, shared across views
+  const draftAssignments = useWorkspaceStore((s) => s.draftAssignments)
+  const storedMyTeamIds = useWorkspaceStore((s) => s.myTeamIds)
+  const setDraftAssignment = useWorkspaceStore((s) => s.setDraftAssignment)
+  const removeDraftAssignment = useWorkspaceStore((s) => s.removeDraftAssignment)
+  const setAllDraftAssignments = useWorkspaceStore((s) => s.setAllDraftAssignments)
+  const clearDraft = useWorkspaceStore((s) => s.clearDraft)
+  const setMyTeamIds = useWorkspaceStore((s) => s.setMyTeamIds)
+
+  // Convert stored assignments to a pickId → Prospect lookup for easy rendering
+  const assignments: Record<string, Prospect> = Object.fromEntries(
+    draftAssignments.map((a) => [a.pickId, {
+      id: a.prospectId, name: a.prospectName,
+      position: a.position, school: a.school,
+      projected_pick: null, overall_model_score: null,
+      shooting_score: null, size_score: null, upside_score: null,
+      defense_score: null, height_inches: null, weight_lbs: null,
+      wingspan_inches: null,
+    } as Prospect]),
+  )
+  const myTeamIds = new Set(storedMyTeamIds)
+
   const [posFilter, setPosFilter] = useState('')
   const [searchQ, setSearchQ] = useState('')
   const [selectedPick, setSelectedPick] = useState<DraftPick | null>(null)
@@ -50,7 +71,7 @@ export default function DraftBoard() {
   const r2Ref = useRef<HTMLDivElement>(null)
 
   const picks = draftOrder as DraftPick[]
-  const assignedIds = new Set(Object.values(assignments).map((p) => p.id))
+  const assignedIds = new Set(draftAssignments.map((a) => a.prospectId))
 
   const availableProspects = [...(allProspects as Prospect[])]
     .sort((a, b) => (a.projected_pick ?? 999) - (b.projected_pick ?? 999))
@@ -69,53 +90,69 @@ export default function DraftBoard() {
   const myTeamPicks = picks.filter((p) => myTeamIds.has(p.team_id))
 
   function toggleMyTeam(teamId: string) {
-    setMyTeamIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(teamId)) next.delete(teamId)
-      else next.add(teamId)
-      return next
-    })
+    const next = storedMyTeamIds.includes(teamId)
+      ? storedMyTeamIds.filter((id) => id !== teamId)
+      : [...storedMyTeamIds, teamId]
+    setMyTeamIds(next)
   }
 
   function handlePickClick(pick: DraftPick) {
     if (assignments[pick.pick_id]) {
-      unassign(pick.pick_id)
+      removeDraftAssignment(pick.pick_id)
     } else {
       setSelectedPick((p) => p?.pick_id === pick.pick_id ? null : pick)
     }
   }
 
   function assign(pick: DraftPick, prospect: Prospect) {
-    setAssignments((prev) => ({ ...prev, [pick.pick_id]: prospect }))
+    setDraftAssignment({
+      pickId: pick.pick_id,
+      pickNumber: pick.pick_number,
+      round: pick.round,
+      teamId: pick.team_id,
+      teamName: pick.team_name,
+      abbreviation: pick.abbreviation,
+      prospectId: prospect.id,
+      prospectName: prospect.name,
+      position: prospect.position ?? '',
+      school: prospect.school ?? '',
+    })
     setSelectedPick(null)
-  }
-
-  function unassign(pickId: string) {
-    setAssignments((prev) => { const next = { ...prev }; delete next[pickId]; return next })
   }
 
   async function simulateRest() {
     setSimulating(true)
-    const orderedPicks = [...picks].sort((a, b) => {
-      if (a.round !== b.round) return a.round - b.round
-      return a.pick_number - b.pick_number
-    })
-    const newAssignments = { ...assignments }
-    const usedIds = new Set(Object.values(newAssignments).map((p) => p.id))
+    const orderedPicks = [...picks].sort((a, b) =>
+      a.round !== b.round ? a.round - b.round : a.pick_number - b.pick_number,
+    )
+    const usedIds = new Set(draftAssignments.map((a) => a.prospectId))
     const available = [...(allProspects as Prospect[])]
       .sort((a, b) => (a.projected_pick ?? 999) - (b.projected_pick ?? 999))
       .filter((p) => !usedIds.has(p.id))
 
+    const newAssignments = [...draftAssignments]
     let idx = 0
     for (const pick of orderedPicks) {
-      if (newAssignments[pick.pick_id]) continue
+      if (assignments[pick.pick_id]) continue
       if (myTeamIds.has(pick.team_id)) continue
       if (idx >= available.length) break
-      newAssignments[pick.pick_id] = available[idx]
-      usedIds.add(available[idx].id)
+      const prospect = available[idx]
+      newAssignments.push({
+        pickId: pick.pick_id,
+        pickNumber: pick.pick_number,
+        round: pick.round,
+        teamId: pick.team_id,
+        teamName: pick.team_name,
+        abbreviation: pick.abbreviation,
+        prospectId: prospect.id,
+        prospectName: prospect.name,
+        position: prospect.position ?? '',
+        school: prospect.school ?? '',
+      })
+      usedIds.add(prospect.id)
       idx++
     }
-    setAssignments(newAssignments)
+    setAllDraftAssignments(newAssignments)
     setSimulating(false)
   }
 
@@ -149,7 +186,7 @@ export default function DraftBoard() {
     )
   }
 
-  const pickedCount = Object.keys(assignments).length
+  const pickedCount = draftAssignments.length
   const myUnpicked = myTeamPicks.filter((p) => !assignments[p.pick_id])
 
   return (
@@ -215,7 +252,7 @@ export default function DraftBoard() {
               Jump to R2 ↓
             </button>
             {pickedCount > 0 && (
-              <button onClick={() => setAssignments({})} className="text-xs text-red-400 hover:text-red-300 px-2">
+              <button onClick={() => clearDraft()} className="text-xs text-red-400 hover:text-red-300 px-2">
                 Reset
               </button>
             )}
@@ -299,7 +336,7 @@ export default function DraftBoard() {
                       <p className="text-xs text-gray-500">R{pick.round} #{pick.pick_number}</p>
                     </div>
                     {assigned ? (
-                      <div onClick={() => unassign(pick.pick_id)} className="bg-blue-900/40 border border-blue-800 rounded p-1.5 cursor-pointer hover:border-red-500 transition-colors">
+                      <div onClick={() => removeDraftAssignment(pick.pick_id)} className="bg-blue-900/40 border border-blue-800 rounded p-1.5 cursor-pointer hover:border-red-500 transition-colors">
                         <p className="text-xs text-white truncate">{assigned.name}</p>
                         <p className="text-xs text-gray-400">{assigned.position} · {assigned.school}</p>
                       </div>

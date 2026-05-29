@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useTeam, useRoster, useTeamStats, useTeamNeeds, useTeamCap, useTeamPicks } from '../../hooks/useTeams'
 import { NeedsRadar } from '../../components/league/NeedsRadar'
 import { TradeProjectionBanner } from '../../components/trade/TradeProjectionBanner'
+import { DraftProjectionBanner } from '../../components/draft/DraftProjectionBanner'
 import { PlayerAvatar } from '../../components/ui/PlayerAvatar'
 import { formatSalary } from '../../utils/format'
 import { useTradeProjection } from '../../hooks/useTradeProjection'
@@ -59,6 +60,9 @@ export default function TeamView() {
           violations={projection.violations}
         />
       )}
+
+      {/* Draft simulation overlay */}
+      <DraftProjectionBanner teamId={teamId!} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Roster */}
