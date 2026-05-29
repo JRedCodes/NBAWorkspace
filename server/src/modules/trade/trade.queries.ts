@@ -42,6 +42,7 @@ export const tradeQueries = {
     snapshotRoster: object,
     snapshotContracts: object,
     snapshotPicks: object,
+    players: { playerId: string; fromTeamId: string; toTeamId: string }[] = [],
   ) {
     const [row] = await db('trade_scenarios')
       .insert({
@@ -54,7 +55,40 @@ export const tradeQueries = {
         saved_at: db.fn.now(),
       })
       .returning('*')
+
+    // Store individual player legs for later reconstruction
+    if (players.length > 0) {
+      await db('trade_scenario_players').insert(
+        players.map((p) => ({
+          scenario_id: row.id,
+          player_id: p.playerId,
+          from_team_id: p.fromTeamId,
+          to_team_id: p.toTeamId,
+        })),
+      )
+    }
+
     return row
+  },
+
+  getScenarioLegs(scenarioId: string) {
+    return db('trade_scenario_players as tsp')
+      .join('players as p', 'tsp.player_id', 'p.id')
+      .join('contracts as c', 'c.player_id', 'p.id')
+      .join('teams as ft', 'tsp.from_team_id', 'ft.id')
+      .join('teams as tt', 'tsp.to_team_id', 'tt.id')
+      .where('tsp.scenario_id', scenarioId)
+      .select(
+        'p.id as player_id',
+        db.raw("p.first_name || ' ' || p.last_name as player_name"),
+        'c.current_year_salary as salary',
+        'tsp.from_team_id',
+        'ft.name as from_team_name',
+        'ft.abbreviation as from_team_abbr',
+        'tsp.to_team_id',
+        'tt.name as to_team_name',
+        'tt.abbreviation as to_team_abbr',
+      )
   },
 
   updateScenario(id: string, data: { name?: string; is_valid?: boolean }) {

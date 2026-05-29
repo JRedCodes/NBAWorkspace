@@ -20,6 +20,10 @@ export const tradeController = {
     res.json(await tradeService.getScenario(param(req.params.id), req.user!.userId))
   }),
 
+  getScenarioLegs: asyncHandler(async (req: Request, res: Response) => {
+    res.json(await tradeService.getScenarioLegs(param(req.params.id), req.user!.userId))
+  }),
+
   createScenario: asyncHandler(async (req: Request, res: Response) => {
     const scenario = await tradeService.createScenario(req.body, req.user!.userId)
     res.status(201).json(scenario)
