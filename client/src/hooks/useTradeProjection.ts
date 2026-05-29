@@ -36,9 +36,10 @@ export function useTradeProjection(teamId: string) {
 
   if (!teamProjection) return null
 
+  const p = teamProjection as unknown as Record<string, unknown>
+
   return {
     isValid: project.data.validation.isValid,
-    scenarioName: useWorkspaceStore.getState().activeScenarioId ? 'saved scenario' : 'active trade',
     violations: project.data.validation.violations.filter((v) => v.teamId === teamId || !v.teamId),
     playersOut: teamProjection.playersOut,
     playersIn: teamProjection.playersIn,
@@ -46,5 +47,10 @@ export function useTradeProjection(teamId: string) {
     salaryOut: teamSummary?.salaryOut ?? 0,
     salaryIn: teamSummary?.salaryIn ?? 0,
     netChange: teamSummary?.netChange ?? 0,
+    projectedStats: p.projectedStats as {
+      offRating: number; defRating: number; netRating: number
+      pace: number | null; pointsDelta: number; reboundsDelta: number; assistsDelta: number
+    } | undefined,
+    baselineStats: p.baselineStats as { offRating: number; defRating: number; netRating: number } | null | undefined,
   }
 }

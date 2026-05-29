@@ -18,6 +18,23 @@ export const tradeQueries = {
     return db('team_cap_sheet').where({ team_id: teamId }).orderBy('season_year', 'desc').first()
   },
 
+  getPlayerSeasonStats(playerIds: string[], season = '2025-26') {
+    return db('player_season_stats')
+      .whereIn('player_id', playerIds)
+      .where({ season_year: season })
+      .select(
+        'player_id', 'minutes_per_game', 'points', 'rebounds', 'assists',
+        'steals', 'blocks', 'fg_pct', 'three_pct', 'true_shooting_pct',
+        'offensive_rating', 'defensive_rating', 'usage_rate',
+      )
+  },
+
+  getTeamBaselineStats(teamId: string, season = '2025-26') {
+    return db('team_season_stats')
+      .where({ team_id: teamId, season_year: season })
+      .first()
+  },
+
   getTeamRosterSalaries(teamId: string) {
     return db('contracts')
       .where({ team_id: teamId })
