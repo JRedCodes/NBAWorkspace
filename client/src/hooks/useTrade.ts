@@ -86,7 +86,12 @@ export function useDeleteScenario() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => tradeService.deleteScenario(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: tradeKeys.scenarios }),
+    onSuccess: (_data, deletedId) => {
+      // If the deleted scenario was active in the workspace, clear it
+      const { activeScenarioId, clearTrade } = useWorkspaceStore.getState()
+      if (activeScenarioId === deletedId) clearTrade()
+      queryClient.invalidateQueries({ queryKey: tradeKeys.scenarios })
+    },
   })
 }
 

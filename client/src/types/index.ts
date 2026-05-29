@@ -85,6 +85,10 @@ export interface TeamStats {
   wins: number
   losses: number
   playoff_seed: number | null
+  three_pct: number | null
+  three_rate: number | null
+  assist_rate: number | null
+  turnover_rate: number | null
 }
 
 export interface PowerRanking {

@@ -10,5 +10,7 @@ export const teamsService = {
   getStats: (id: string) => api.get(`/teams/${id}/stats`),
   getNeeds: (id: string) => api.get(`/teams/${id}/needs`),
   getAnalytics: (id: string) => api.get(`/teams/${id}/analytics`),
+  getProjectedNeeds: (teamId: string, outgoingPlayerIds: string[], incomingPlayerIds: string[]) =>
+    api.post(`/teams/${teamId}/needs/projected`, { outgoingPlayerIds, incomingPlayerIds }),
   getCarousel: () => api.get('/teams/league/carousel'),
 }

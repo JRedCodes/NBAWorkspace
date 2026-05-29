@@ -93,3 +93,16 @@ export function useTeamPicks(teamId: string) {
     enabled: !!teamId,
   })
 }
+
+export function useProjectedNeeds(
+  teamId: string,
+  outgoingPlayerIds: string[],
+  incomingPlayerIds: string[],
+) {
+  return useQuery<{ current: TeamNeeds; projected: TeamNeeds }>({
+    queryKey: [...teamKeys.needs(teamId), 'projected', outgoingPlayerIds, incomingPlayerIds],
+    queryFn: () =>
+      teamsService.getProjectedNeeds(teamId, outgoingPlayerIds, incomingPlayerIds).then((r) => r.data),
+    enabled: !!teamId && (outgoingPlayerIds.length > 0 || incomingPlayerIds.length > 0),
+  })
+}

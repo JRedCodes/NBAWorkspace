@@ -111,6 +111,28 @@ export const teamsService = {
     return data
   },
 
+  async getProjectedNeeds(
+    teamId: string,
+    outgoingPlayerIds: string[],
+    incomingPlayerIds: string[],
+  ) {
+    // Fetch current roster metrics
+    const currentRows = await teamsQueries.getNeeds(teamId) as Record<string, unknown>[]
+    // Fetch incoming player metrics (they live on another team's roster)
+    const incomingMetrics = await teamsQueries.getPlayerMetricsBatch(incomingPlayerIds)
+
+    // Remove outgoing players, add incoming players
+    const filteredRows = currentRows.filter(
+      (r) => !outgoingPlayerIds.includes(r.player_id as string),
+    )
+    const combined = [...filteredRows, ...incomingMetrics as Record<string, unknown>[]]
+
+    return {
+      current: computeNeeds(currentRows as Record<string, number | null>[]),
+      projected: computeNeeds(combined as Record<string, number | null>[]),
+    }
+  },
+
   async getAnalytics(teamId: string) {
     const key = `team:${teamId}:analytics`
     const cached = await cacheService.get(key)

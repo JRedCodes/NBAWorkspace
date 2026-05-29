@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useTeam, useRoster, useTeamStats, useTeamNeeds, useTeamCap, useTeamPicks } from '../../hooks/useTeams'
+import { useTeam, useRoster, useTeamStats, useTeamNeeds, useTeamCap, useTeamPicks, useProjectedNeeds } from '../../hooks/useTeams'
 import { NeedsRadar } from '../../components/league/NeedsRadar'
 import { TradeProjectionBanner } from '../../components/trade/TradeProjectionBanner'
 import { DraftProjectionBanner } from '../../components/draft/DraftProjectionBanner'
@@ -29,6 +29,15 @@ export default function TeamView() {
   const incomingPlayers = tradeLegs.filter((l) => l.toTeamId === teamId)
   const outgoingPicks = tradedPicks.filter((p) => p.fromTeamId === teamId)
   const incomingPicks = tradedPicks.filter((p) => p.toTeamId === teamId)
+
+  // Projected needs — only computed when trade involves this team
+  const outgoingIds = [...outgoingPlayerIds]
+  const incomingIds = incomingPlayers.map((l) => l.playerId)
+  const { data: projectedNeedsData } = useProjectedNeeds(
+    teamId!,
+    outgoingIds,
+    incomingIds,
+  )
 
   if (isLoading) {
     return (
@@ -148,20 +157,40 @@ export default function TeamView() {
 
         {/* Right column */}
         <div className="space-y-4">
-          {/* Team Stats */}
+          {/* Team Stats — expanded */}
           {stats && (
             <div className="bg-gray-800 rounded-lg p-4">
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Season Stats</h2>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">2025–26 Season</h2>
+                <span className="text-xs text-gray-500">{stats.wins}W – {stats.losses}L{stats.playoff_seed ? ` · #${stats.playoff_seed} seed` : ''}</span>
+              </div>
+
+              {/* Rating row */}
+              <div className="grid grid-cols-3 gap-2 mb-3">
                 {[
-                  { label: 'OffRtg', value: stats.offensive_rating?.toFixed(1) },
-                  { label: 'DefRtg', value: stats.defensive_rating?.toFixed(1) },
-                  { label: 'NetRtg', value: stats.net_rating?.toFixed(1) },
-                  { label: 'Pace', value: stats.pace?.toFixed(1) },
-                ].map(({ label, value }) => (
-                  <div key={label} className="text-center">
-                    <p className="text-xl font-bold text-white">{value ?? '—'}</p>
+                  { label: 'OffRtg', value: stats.offensive_rating?.toFixed(1), color: 'text-blue-400' },
+                  { label: 'DefRtg', value: stats.defensive_rating?.toFixed(1), color: 'text-red-400' },
+                  { label: 'NetRtg', value: stats.net_rating?.toFixed(1), color: Number(stats.net_rating) >= 0 ? 'text-green-400' : 'text-red-400' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="text-center bg-gray-900/50 rounded p-2">
+                    <p className={`text-lg font-bold ${color}`}>{value ?? '—'}</p>
                     <p className="text-xs text-gray-500">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Secondary stats */}
+              <div className="space-y-1.5 text-xs">
+                {[
+                  { label: 'Pace', value: stats.pace?.toFixed(1) },
+                  { label: '3PT%', value: stats.three_pct ? `${(Number(stats.three_pct) * 100).toFixed(1)}%` : null },
+                  { label: '3PT Rate', value: stats.three_rate ? `${(Number(stats.three_rate) * 100).toFixed(1)}%` : null },
+                  { label: 'AST Rate', value: stats.assist_rate ? `${(Number(stats.assist_rate) * 100).toFixed(1)}%` : null },
+                  { label: 'TOV Rate', value: stats.turnover_rate ? `${(Number(stats.turnover_rate) * 100).toFixed(1)}%` : null },
+                ].filter((s) => s.value).map(({ label, value }) => (
+                  <div key={label} className="flex justify-between">
+                    <span className="text-gray-500">{label}</span>
+                    <span className="text-gray-300 font-medium">{value}</span>
                   </div>
                 ))}
               </div>
@@ -188,11 +217,14 @@ export default function TeamView() {
             </div>
           )}
 
-          {/* Needs Radar */}
+          {/* Needs Radar — shows before/after toggle when trade is active */}
           {needs && (
             <div className="bg-gray-800 rounded-lg p-4">
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Needs</h2>
-              <NeedsRadar needs={needs} />
+              <NeedsRadar
+                needs={needs}
+                projectedNeeds={projectedNeedsData?.projected ?? null}
+              />
             </div>
           )}
 

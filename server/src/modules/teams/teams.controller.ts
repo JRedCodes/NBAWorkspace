@@ -40,6 +40,18 @@ export const teamsController = {
     res.json(await teamsService.getNeeds(param(req.params.teamId)))
   }),
 
+  getProjectedNeeds: asyncHandler(async (req: Request, res: Response) => {
+    const { outgoingPlayerIds = [], incomingPlayerIds = [] } = req.body as {
+      outgoingPlayerIds: string[]
+      incomingPlayerIds: string[]
+    }
+    res.json(await teamsService.getProjectedNeeds(
+      param(req.params.teamId),
+      outgoingPlayerIds,
+      incomingPlayerIds,
+    ))
+  }),
+
   getAnalytics: asyncHandler(async (req: Request, res: Response) => {
     res.json(await teamsService.getAnalytics(param(req.params.teamId)))
   }),
