@@ -413,7 +413,11 @@ export default function TradeMachine() {
     setTradeLegs(tradeLegsFull)
     setTradedPicks(tradedPicksFull)
 
-    await createScenario.mutate(name)
+    const saved = await createScenario.mutateAsync(name)
+    // Mark as active so deleting it later also clears the workspace
+    if (saved && (saved as { id?: string }).id) {
+      useWorkspaceStore.getState().setActiveScenario((saved as { id: string }).id)
+    }
     navigate('/trade')
   }
 
