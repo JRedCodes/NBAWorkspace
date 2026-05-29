@@ -69,6 +69,8 @@ export default function TeamView() {
           netChange={projection.netChange}
           isValid={projection.isValid}
           violations={projection.violations}
+          projectedStats={projection.projectedStats}
+          baselineStats={projection.baselineStats}
         />
       )}
 

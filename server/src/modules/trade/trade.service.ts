@@ -50,6 +50,24 @@ async function getPayrolls(teamIds: string[]): Promise<Record<string, number>> {
   return payrolls
 }
 
+function buildPlayerStats(
+  s: Record<string, unknown> | undefined,
+  avgOff: number,
+  avgDef: number,
+  toNum: (v: unknown, f: number) => number,
+): Record<string, number | null> {
+  if (!s) return { ppg: null, rpg: null, apg: null, mpg: null, offRtg: null, defRtg: null, tsPct: null }
+  return {
+    ppg: toNum(s.points, 0),
+    rpg: toNum(s.rebounds, 0),
+    apg: toNum(s.assists, 0),
+    mpg: toNum(s.minutes_per_game, 0),
+    offRtg: toNum(s.offensive_rating, avgOff),
+    defRtg: toNum(s.defensive_rating, avgDef),
+    tsPct: toNum(s.true_shooting_pct, 0),
+  }
+}
+
 export const tradeService = {
   async validate(body: ValidateTradeBody) {
     const { slots, contractMap } = await buildTeamSlots(body.players)
@@ -65,11 +83,34 @@ export const tradeService = {
     const payrolls = await getPayrolls(teamIds)
     const validation = validateTrade(slots, payrolls)
 
-    // Build projected roster per team
+    // Fetch season stats for all players in the trade
+    const allPlayerIds = slots.flatMap((s) => [
+      ...s.outgoing.map((p) => p.playerId),
+      ...s.incoming.map((p) => p.playerId),
+    ])
+    const playerStats = await tradeQueries.getPlayerSeasonStats(allPlayerIds)
+    const statsMap = Object.fromEntries(playerStats.map((s) => [s.player_id, s]))
+
+    // Weighted-minutes replacement model constants
+    const TEAM_MINUTES_PER_GAME = 240  // 5 players × 48 min
+    const LEAGUE_AVG_OFF = 113.0
+    const LEAGUE_AVG_DEF = 113.0
+
+    function toNum(v: unknown, fallback: number): number {
+      const n = Number(v)
+      return isNaN(n) || n === 0 ? fallback : n
+    }
+
     const projection: Record<string, {
-      playersOut: { playerId: string; name: string; salary: number }[]
-      playersIn: { playerId: string; name: string; salary: number }[]
+      playersOut: { playerId: string; name: string; salary: number; stats: Record<string, number | null> }[]
+      playersIn: { playerId: string; name: string; salary: number; stats: Record<string, number | null> }[]
       projectedPayroll: number
+      projectedStats: {
+        offRating: number; defRating: number; netRating: number
+        pace: number | null
+        pointsDelta: number; reboundsDelta: number; assistsDelta: number
+      }
+      baselineStats: { offRating: number; defRating: number; netRating: number } | null
       isValid: boolean
     }> = {}
 
@@ -77,18 +118,82 @@ export const tradeService = {
       const summary = validation.teamSummaries[slot.teamId]
       const currentPayroll = payrolls[slot.teamId] ?? 0
 
+      // Fetch this team's current baseline stats
+      const baseline = await tradeQueries.getTeamBaselineStats(slot.teamId)
+      const baseOff = toNum(baseline?.offensive_rating, LEAGUE_AVG_OFF)
+      const baseDef = toNum(baseline?.defensive_rating, LEAGUE_AVG_DEF)
+
+      // Calculate weighted impact per player
+      // Impact = (player_individual_rating - league_avg) × (player_mpg / TEAM_MPG)
+      // Net change = sum of incoming impacts - sum of outgoing impacts
+
+      let offImpact = 0
+      let defImpact = 0
+      let ptsDelta = 0
+      let rebDelta = 0
+      let astDelta = 0
+
+      for (const p of slot.outgoing) {
+        const s = statsMap[p.playerId]
+        const mpg = toNum(s?.minutes_per_game, 20)
+        const weight = mpg / TEAM_MINUTES_PER_GAME
+        const offRtg = toNum(s?.offensive_rating, LEAGUE_AVG_OFF)
+        const defRtg = toNum(s?.defensive_rating, LEAGUE_AVG_DEF)
+        offImpact -= (offRtg - LEAGUE_AVG_OFF) * weight
+        defImpact -= (defRtg - LEAGUE_AVG_DEF) * weight
+        ptsDelta -= toNum(s?.points, 10) * weight * TEAM_MINUTES_PER_GAME / mpg
+        rebDelta -= toNum(s?.rebounds, 4) * weight * TEAM_MINUTES_PER_GAME / mpg
+        astDelta -= toNum(s?.assists, 2) * weight * TEAM_MINUTES_PER_GAME / mpg
+      }
+
+      for (const p of slot.incoming) {
+        const s = statsMap[p.playerId]
+        const mpg = toNum(s?.minutes_per_game, 20)
+        // Incoming player takes roughly the outgoing player's minutes
+        const outMpg = toNum(statsMap[slot.outgoing[0]?.playerId]?.minutes_per_game, mpg)
+        const weight = outMpg / TEAM_MINUTES_PER_GAME
+        const offRtg = toNum(s?.offensive_rating, LEAGUE_AVG_OFF)
+        const defRtg = toNum(s?.defensive_rating, LEAGUE_AVG_DEF)
+        offImpact += (offRtg - LEAGUE_AVG_OFF) * weight
+        defImpact += (defRtg - LEAGUE_AVG_DEF) * weight
+        ptsDelta += toNum(s?.points, 10) * weight * TEAM_MINUTES_PER_GAME / mpg
+        rebDelta += toNum(s?.rebounds, 4) * weight * TEAM_MINUTES_PER_GAME / mpg
+        astDelta += toNum(s?.assists, 2) * weight * TEAM_MINUTES_PER_GAME / mpg
+      }
+
+      const projOff = Math.round((baseOff + offImpact) * 10) / 10
+      const projDef = Math.round((baseDef + defImpact) * 10) / 10
+
       projection[slot.teamId] = {
         playersOut: slot.outgoing.map((p) => ({
           playerId: p.playerId,
           name: `${contractMap[p.playerId]?.first_name ?? ''} ${contractMap[p.playerId]?.last_name ?? ''}`.trim(),
           salary: p.salary,
+          stats: buildPlayerStats(statsMap[p.playerId], LEAGUE_AVG_OFF, LEAGUE_AVG_DEF, toNum),
         })),
         playersIn: slot.incoming.map((p) => ({
           playerId: p.playerId,
           name: `${contractMap[p.playerId]?.first_name ?? ''} ${contractMap[p.playerId]?.last_name ?? ''}`.trim(),
           salary: p.salary,
+          stats: buildPlayerStats(statsMap[p.playerId], LEAGUE_AVG_OFF, LEAGUE_AVG_DEF, toNum),
         })),
         projectedPayroll: currentPayroll - summary.salaryOut + summary.salaryIn,
+        projectedStats: {
+          offRating: projOff,
+          defRating: projDef,
+          netRating: Math.round((projOff - projDef) * 10) / 10,
+          pace: baseline?.pace ? Number(baseline.pace) : null,
+          pointsDelta: Math.round(ptsDelta * 10) / 10,
+          reboundsDelta: Math.round(rebDelta * 10) / 10,
+          assistsDelta: Math.round(astDelta * 10) / 10,
+        },
+        baselineStats: baseline
+          ? {
+              offRating: baseOff,
+              defRating: baseDef,
+              netRating: Math.round((baseOff - baseDef) * 10) / 10,
+            }
+          : null,
         isValid: validation.isValid,
       }
     }
