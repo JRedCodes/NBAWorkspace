@@ -1,4 +1,4 @@
-import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts'
+import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts'
 import type { TeamNeeds } from '../../types'
 
 interface Props {
@@ -18,48 +18,53 @@ const LABELS: Record<keyof TeamNeeds, string> = {
 
 const KEYS = Object.keys(LABELS) as (keyof TeamNeeds)[]
 
+function SingleRadar({ data, color, opacity = 0.25 }: {
+  data: { category: string; value: number }[]
+  color: string
+  opacity?: number
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={180}>
+      <RadarChart data={data} margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+        <PolarGrid stroke="#2d3748" />
+        <PolarAngleAxis dataKey="category" tick={{ fill: '#9CA3AF', fontSize: 10 }} />
+        <Radar dataKey="value" stroke={color} fill={color} fillOpacity={opacity} strokeWidth={2} />
+      </RadarChart>
+    </ResponsiveContainer>
+  )
+}
+
 export function NeedsRadar({ needs, projectedNeeds }: Props) {
   const hasProjection = !!projectedNeeds
 
-  const data = KEYS.map((key) => ({
-    category: LABELS[key],
-    current: needs[key],
-    projected: projectedNeeds?.[key] ?? needs[key],
-  }))
+  const currentData = KEYS.map((key) => ({ category: LABELS[key], value: needs[key] }))
+  const projectedData = projectedNeeds
+    ? KEYS.map((key) => ({ category: LABELS[key], value: projectedNeeds[key] }))
+    : null
 
   return (
     <div className="space-y-3">
-      {hasProjection && (
-        <div className="flex items-center gap-4 text-xs text-gray-400">
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-0.5 bg-blue-400" />
-            Current roster
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-0.5 bg-orange-400 opacity-80" style={{ borderTop: '2px dashed #f97316' }} />
-            After trade
-          </span>
+      {hasProjection ? (
+        /* Two side-by-side charts when trade is active */
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-xs text-gray-500 text-center mb-1">Current Roster</p>
+            <SingleRadar data={currentData} color="#3b82f6" />
+          </div>
+          <div>
+            <p className="text-xs text-orange-400 text-center mb-1">After Trade</p>
+            <SingleRadar data={projectedData!} color="#f97316" />
+          </div>
         </div>
+      ) : (
+        /* Single chart when no trade */
+        <SingleRadar data={currentData} color="#3b82f6" />
       )}
 
-      <ResponsiveContainer width="100%" height={230}>
-        <RadarChart data={data}>
-          <PolarGrid stroke="#2d3748" />
-          <PolarAngleAxis dataKey="category" tick={{ fill: '#9CA3AF', fontSize: 11 }} />
-          <Tooltip
-            contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: 6, fontSize: 12 }}
-            formatter={(val, name) => [Math.round(Number(val ?? 0)), name === 'current' ? 'Current' : 'After trade'] as [number, string]}
-          />
-          <Radar name="current" dataKey="current" stroke="#3b82f6" fill="#3b82f6" fillOpacity={hasProjection ? 0.12 : 0.28} strokeWidth={hasProjection ? 1.5 : 2} />
-          {hasProjection && (
-            <Radar name="projected" dataKey="projected" stroke="#f97316" fill="#f97316" fillOpacity={0.18} strokeWidth={2} strokeDasharray="5 3" />
-          )}
-        </RadarChart>
-      </ResponsiveContainer>
-
+      {/* Delta table */}
       {hasProjection && projectedNeeds && (
-        <div className="space-y-1 border-t border-gray-700/60 pt-2.5">
-          <p className="text-xs text-gray-500 mb-1.5">Need changes after trade</p>
+        <div className="space-y-1.5 border-t border-gray-700/60 pt-3">
+          <p className="text-xs text-gray-500 mb-1">Needs change after trade</p>
           {KEYS.map((key) => {
             const delta = Math.round(projectedNeeds[key] - needs[key])
             if (Math.abs(delta) < 1) return null
@@ -68,9 +73,9 @@ export function NeedsRadar({ needs, projectedNeeds }: Props) {
                 <span className="text-gray-400">{LABELS[key]}</span>
                 <div className="flex items-center gap-2">
                   <span className="text-gray-500">{needs[key]}</span>
-                  <span className="text-gray-600 text-xs">→</span>
+                  <span className="text-gray-600">→</span>
                   <span className="text-orange-400">{projectedNeeds[key]}</span>
-                  <span className={`font-medium ${delta > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                  <span className={delta > 0 ? 'text-red-400 font-medium' : 'text-green-400 font-medium'}>
                     {delta > 0 ? `+${delta}` : `${delta}`}
                   </span>
                 </div>
