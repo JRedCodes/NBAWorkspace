@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLogout } from '../../hooks/useAuth'
 import { useAuthStore } from '../../store/authStore'
+import { useWorkspaceStore } from '../../store/workspaceStore'
 import { workspaceService } from '../../services/workspace.service'
 
 const NAV_ITEMS = [
@@ -18,10 +19,12 @@ export function Navbar() {
   const logout = useLogout()
   const qc = useQueryClient()
   const [showReset, setShowReset] = useState(false)
+  const resetLocalWorkspace = useWorkspaceStore((s) => s.resetWorkspace)
 
   const resetWorkspace = useMutation({
     mutationFn: () => workspaceService.reset(),
     onSuccess: () => {
+      resetLocalWorkspace() // also clear trade legs, draft assignments, my teams
       qc.invalidateQueries({ queryKey: ['trade', 'scenarios'] })
       qc.invalidateQueries({ queryKey: ['draft', 'boards'] })
       setShowReset(false)
