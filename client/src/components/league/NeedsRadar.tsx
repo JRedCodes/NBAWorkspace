@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer, Legend } from 'recharts'
+import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts'
 import type { TeamNeeds } from '../../types'
 
 interface Props {
@@ -17,91 +16,62 @@ const LABELS: Record<keyof TeamNeeds, string> = {
   leadership: 'Leader',
 }
 
-export function NeedsRadar({ needs, projectedNeeds }: Props) {
-  const [showProjected, setShowProjected] = useState(false)
+const KEYS = Object.keys(LABELS) as (keyof TeamNeeds)[]
 
-  const data = (Object.keys(needs) as (keyof TeamNeeds)[]).map((key) => ({
+export function NeedsRadar({ needs, projectedNeeds }: Props) {
+  const hasProjection = !!projectedNeeds
+
+  const data = KEYS.map((key) => ({
     category: LABELS[key],
     current: needs[key],
     projected: projectedNeeds?.[key] ?? needs[key],
   }))
 
-  const hasProjection = !!projectedNeeds
-
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {hasProjection && (
-        <div className="flex gap-1">
-          <button
-            onClick={() => setShowProjected(false)}
-            className={`text-xs px-2 py-0.5 rounded transition-colors ${
-              !showProjected ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-400 hover:text-white'
-            }`}
-          >
-            Current
-          </button>
-          <button
-            onClick={() => setShowProjected(true)}
-            className={`text-xs px-2 py-0.5 rounded transition-colors ${
-              showProjected ? 'bg-orange-600 text-white' : 'bg-gray-700 text-gray-400 hover:text-white'
-            }`}
-          >
-            After Trade
-          </button>
+        <div className="flex items-center gap-4 text-xs text-gray-400">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-0.5 bg-blue-400" />
+            Current roster
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-0.5 bg-orange-400 opacity-80" style={{ borderTop: '2px dashed #f97316' }} />
+            After trade
+          </span>
         </div>
       )}
 
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={230}>
         <RadarChart data={data}>
-          <PolarGrid stroke="#374151" />
+          <PolarGrid stroke="#2d3748" />
           <PolarAngleAxis dataKey="category" tick={{ fill: '#9CA3AF', fontSize: 11 }} />
-
-          {/* Always show current */}
-          <Radar
-            dataKey="current"
-            stroke="#3B82F6"
-            fill="#3B82F6"
-            fillOpacity={hasProjection && showProjected ? 0.1 : 0.25}
-            name="Current"
+          <Tooltip
+            contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: 6, fontSize: 12 }}
+            formatter={(val, name) => [Math.round(Number(val ?? 0)), name === 'current' ? 'Current' : 'After trade'] as [number, string]}
           />
-
-          {/* Show projected overlay when toggled */}
-          {hasProjection && showProjected && (
-            <Radar
-              dataKey="projected"
-              stroke="#F97316"
-              fill="#F97316"
-              fillOpacity={0.25}
-              name="After Trade"
-            />
-          )}
-
-          {hasProjection && showProjected && (
-            <Legend
-              wrapperStyle={{ fontSize: 11 }}
-              formatter={(value) => (
-                <span style={{ color: value === 'Current' ? '#3B82F6' : '#F97316' }}>{value}</span>
-              )}
-            />
+          <Radar name="current" dataKey="current" stroke="#3b82f6" fill="#3b82f6" fillOpacity={hasProjection ? 0.12 : 0.28} strokeWidth={hasProjection ? 1.5 : 2} />
+          {hasProjection && (
+            <Radar name="projected" dataKey="projected" stroke="#f97316" fill="#f97316" fillOpacity={0.18} strokeWidth={2} strokeDasharray="5 3" />
           )}
         </RadarChart>
       </ResponsiveContainer>
 
-      {/* Delta table when in projected mode */}
-      {hasProjection && showProjected && projectedNeeds && (
-        <div className="space-y-1 mt-1">
-          {(Object.keys(needs) as (keyof TeamNeeds)[]).map((key) => {
-            const delta = projectedNeeds[key] - needs[key]
-            if (Math.abs(delta) < 0.5) return null
+      {hasProjection && projectedNeeds && (
+        <div className="space-y-1 border-t border-gray-700/60 pt-2.5">
+          <p className="text-xs text-gray-500 mb-1.5">Need changes after trade</p>
+          {KEYS.map((key) => {
+            const delta = Math.round(projectedNeeds[key] - needs[key])
+            if (Math.abs(delta) < 1) return null
             return (
               <div key={key} className="flex items-center justify-between text-xs">
-                <span className="text-gray-500">{LABELS[key]}</span>
+                <span className="text-gray-400">{LABELS[key]}</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-gray-400">{needs[key]}</span>
-                  <span className="text-gray-600">→</span>
+                  <span className="text-gray-500">{needs[key]}</span>
+                  <span className="text-gray-600 text-xs">→</span>
                   <span className="text-orange-400">{projectedNeeds[key]}</span>
-                  <span className={delta > 0 ? 'text-red-400' : 'text-green-400'}>
-                    {delta > 0 ? `+${Math.round(delta)}` : Math.round(delta)}
+                  <span className={`font-medium ${delta > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                    {delta > 0 ? `+${delta}` : `${delta}`}
                   </span>
                 </div>
               </div>

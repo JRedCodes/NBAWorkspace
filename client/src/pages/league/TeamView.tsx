@@ -157,40 +157,31 @@ export default function TeamView() {
 
         {/* Right column */}
         <div className="space-y-4">
-          {/* Team Stats — expanded */}
+          {/* Team Stats */}
           {stats && (
             <div className="bg-gray-800 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">2025–26 Season</h2>
-                <span className="text-xs text-gray-500">{stats.wins}W – {stats.losses}L{stats.playoff_seed ? ` · #${stats.playoff_seed} seed` : ''}</span>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Season Stats</h2>
+                <span className="text-sm font-medium text-white">
+                  {stats.wins}–{stats.losses}
+                  {stats.playoff_seed ? <span className="text-xs text-gray-400 ml-1.5">#{stats.playoff_seed} seed</span> : null}
+                </span>
               </div>
 
-              {/* Rating row */}
-              <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="space-y-2.5 text-sm">
                 {[
-                  { label: 'OffRtg', value: stats.offensive_rating?.toFixed(1), color: 'text-blue-400' },
-                  { label: 'DefRtg', value: stats.defensive_rating?.toFixed(1), color: 'text-red-400' },
-                  { label: 'NetRtg', value: stats.net_rating?.toFixed(1), color: Number(stats.net_rating) >= 0 ? 'text-green-400' : 'text-red-400' },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="text-center bg-gray-900/50 rounded p-2">
-                    <p className={`text-lg font-bold ${color}`}>{value ?? '—'}</p>
-                    <p className="text-xs text-gray-500">{label}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Secondary stats */}
-              <div className="space-y-1.5 text-xs">
-                {[
-                  { label: 'Pace', value: stats.pace?.toFixed(1) },
-                  { label: '3PT%', value: stats.three_pct ? `${(Number(stats.three_pct) * 100).toFixed(1)}%` : null },
-                  { label: '3PT Rate', value: stats.three_rate ? `${(Number(stats.three_rate) * 100).toFixed(1)}%` : null },
-                  { label: 'AST Rate', value: stats.assist_rate ? `${(Number(stats.assist_rate) * 100).toFixed(1)}%` : null },
-                  { label: 'TOV Rate', value: stats.turnover_rate ? `${(Number(stats.turnover_rate) * 100).toFixed(1)}%` : null },
-                ].filter((s) => s.value).map(({ label, value }) => (
-                  <div key={label} className="flex justify-between">
-                    <span className="text-gray-500">{label}</span>
-                    <span className="text-gray-300 font-medium">{value}</span>
+                  { label: 'Offensive Rating', value: stats.offensive_rating?.toFixed(1) },
+                  { label: 'Defensive Rating', value: stats.defensive_rating?.toFixed(1) },
+                  { label: 'Net Rating',        value: stats.net_rating?.toFixed(1) },
+                  { label: 'Pace',              value: stats.pace?.toFixed(1) },
+                  { label: '3-Point %',         value: stats.three_pct ? `${(Number(stats.three_pct) * 100).toFixed(1)}%` : null },
+                  { label: '3-Point Rate',      value: stats.three_rate ? `${(Number(stats.three_rate) * 100).toFixed(1)}%` : null },
+                  { label: 'Assist Rate',       value: stats.assist_rate ? `${(Number(stats.assist_rate) * 100).toFixed(1)}%` : null },
+                  { label: 'Turnover Rate',     value: stats.turnover_rate ? `${(Number(stats.turnover_rate) * 100).toFixed(1)}%` : null },
+                ].filter((s) => s.value != null).map(({ label, value }) => (
+                  <div key={label} className="flex justify-between items-center">
+                    <span className="text-gray-400">{label}</span>
+                    <span className="text-white font-medium">{value}</span>
                   </div>
                 ))}
               </div>
