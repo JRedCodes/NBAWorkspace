@@ -6,6 +6,7 @@ import { DraftProjectionBanner } from '../../components/draft/DraftProjectionBan
 import { PlayerAvatar } from '../../components/ui/PlayerAvatar'
 import { formatSalary } from '../../utils/format'
 import { useTradeProjection } from '../../hooks/useTradeProjection'
+import { useWorkspaceStore } from '../../store/workspaceStore'
 
 export default function TeamView() {
   const { teamId } = useParams<{ teamId: string }>()
@@ -18,6 +19,16 @@ export default function TeamView() {
   const { data: cap } = useTeamCap(teamId!)
   const { data: picks } = useTeamPicks(teamId!)
   const projection = useTradeProjection(teamId!)
+
+  // Workspace trade state for roster overlay
+  const tradeLegs = useWorkspaceStore((s) => s.tradeLegs)
+  const tradedPicks = useWorkspaceStore((s) => s.tradedPicks)
+  const outgoingPlayerIds = new Set(
+    tradeLegs.filter((l) => l.fromTeamId === teamId).map((l) => l.playerId),
+  )
+  const incomingPlayers = tradeLegs.filter((l) => l.toTeamId === teamId)
+  const outgoingPicks = tradedPicks.filter((p) => p.fromTeamId === teamId)
+  const incomingPicks = tradedPicks.filter((p) => p.toTeamId === teamId)
 
   if (isLoading) {
     return (
@@ -67,34 +78,66 @@ export default function TeamView() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Roster */}
         <div className="lg:col-span-2 bg-gray-800 rounded-lg p-4">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Roster</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Roster</h2>
+            {(incomingPlayers.length > 0 || outgoingPlayerIds.size > 0) && (
+              <span className="text-xs text-gray-500">Showing projected state</span>
+            )}
+          </div>
+
+          {/* Incoming players from trade */}
+          {incomingPlayers.map((leg) => (
+            <div key={leg.playerId} className="flex items-center justify-between px-3 py-2 mb-1 rounded bg-green-950/40 border border-green-800">
+              <div className="flex items-center gap-3">
+                <PlayerAvatar nbaPlayerId={undefined} name={leg.playerName} size="sm" />
+                <span className="text-white text-sm">{leg.playerName}</span>
+                <span className="text-xs bg-green-800 text-green-200 px-1.5 py-0.5 rounded">
+                  ← IN from {leg.fromTeamName.split(' ').pop()}
+                </span>
+              </div>
+              <span className="text-sm text-gray-300">{formatSalary(leg.salary)}</span>
+            </div>
+          ))}
+
           {roster?.length ? (
             <div className="space-y-1">
-              {(roster as Record<string, unknown>[]).map((player) => (
-                <button
-                  key={player.id as string}
-                  onClick={() => navigate(`/players/${player.id}`)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded hover:bg-gray-700 transition-colors text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <PlayerAvatar
-                      nbaPlayerId={player.nba_player_id as number}
-                      name={`${player.first_name} ${player.last_name}`}
-                      size="sm"
-                    />
-                    <span className="text-xs text-gray-500 w-5 text-right shrink-0">{player.jersey_number as string}</span>
-                    <span className="text-white text-sm">{player.first_name as string} {player.last_name as string}</span>
-                    <span className="text-xs text-gray-500">{player.position as string}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm text-gray-300">{formatSalary(player.current_year_salary as number)}</span>
-                    {(player.is_max as boolean) && <span className="ml-2 text-xs bg-blue-900 text-blue-300 px-1.5 py-0.5 rounded">MAX</span>}
-                    {(player.is_rookie_scale as boolean) && <span className="ml-2 text-xs bg-green-900 text-green-300 px-1.5 py-0.5 rounded">RK</span>}
-                    {(player.is_two_way as boolean) && <span className="ml-2 text-xs bg-purple-900 text-purple-300 px-1.5 py-0.5 rounded">2W</span>}
-                    {(player.has_player_option as boolean) && <span className="ml-2 text-xs bg-yellow-900 text-yellow-300 px-1.5 py-0.5 rounded">PO</span>}
-                  </div>
-                </button>
-              ))}
+              {(roster as Record<string, unknown>[]).map((player) => {
+                const isOutgoing = outgoingPlayerIds.has(player.id as string)
+                return (
+                  <button
+                    key={player.id as string}
+                    onClick={() => navigate(`/players/${player.id}`)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded transition-colors text-left ${
+                      isOutgoing
+                        ? 'opacity-40 bg-red-950/30 border border-red-900/50'
+                        : 'hover:bg-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <PlayerAvatar
+                        nbaPlayerId={player.nba_player_id as number}
+                        name={`${player.first_name} ${player.last_name}`}
+                        size="sm"
+                      />
+                      <span className="text-xs text-gray-500 w-5 text-right shrink-0">{player.jersey_number as string}</span>
+                      <span className={`text-sm ${isOutgoing ? 'line-through text-gray-500' : 'text-white'}`}>
+                        {player.first_name as string} {player.last_name as string}
+                      </span>
+                      <span className="text-xs text-gray-500">{player.position as string}</span>
+                      {isOutgoing && (
+                        <span className="text-xs bg-red-900 text-red-300 px-1.5 py-0.5 rounded">OUT →</span>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm text-gray-300">{formatSalary(player.current_year_salary as number)}</span>
+                      {(player.is_max as boolean) && <span className="ml-2 text-xs bg-blue-900 text-blue-300 px-1.5 py-0.5 rounded">MAX</span>}
+                      {(player.is_rookie_scale as boolean) && <span className="ml-2 text-xs bg-green-900 text-green-300 px-1.5 py-0.5 rounded">RK</span>}
+                      {(player.is_two_way as boolean) && <span className="ml-2 text-xs bg-purple-900 text-purple-300 px-1.5 py-0.5 rounded">2W</span>}
+                      {(player.has_player_option as boolean) && <span className="ml-2 text-xs bg-yellow-900 text-yellow-300 px-1.5 py-0.5 rounded">PO</span>}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           ) : (
             <p className="text-gray-500 text-sm">No roster data. Run the ingestion worker.</p>
@@ -152,16 +195,32 @@ export default function TeamView() {
           )}
 
           {/* Picks */}
-          {picks && (picks as unknown[]).length > 0 && (
+          {((picks && (picks as unknown[]).length > 0) || incomingPicks.length > 0) && (
             <div className="bg-gray-800 rounded-lg p-4">
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Draft Picks</h2>
               <div className="space-y-1">
-                {(picks as Record<string, unknown>[]).slice(0, 6).map((pick) => (
-                  <div key={pick.id as string} className="flex justify-between text-sm">
-                    <span className="text-gray-300">{pick.draft_year as number} R{pick.round as number}</span>
-                    <span className="text-gray-500">{pick.original_team_abbr as string}</span>
+                {/* Incoming picks from trade */}
+                {incomingPicks.map((p) => (
+                  <div key={`in-${p.pickId}`} className="flex justify-between text-sm bg-green-950/40 border border-green-900/50 rounded px-2 py-1">
+                    <span className="text-green-300">{p.draftYear} R{p.round} #{p.pickNumber}</span>
+                    <span className="text-green-500 text-xs">← IN from {p.fromTeamAbbr}</span>
                   </div>
                 ))}
+                {/* Existing picks with trade-out overlay */}
+                {(picks as Record<string, unknown>[])?.slice(0, 8).map((pick) => {
+                  const isTraded = outgoingPicks.some((p) => p.pickId === (pick.id as string))
+                  return (
+                    <div key={pick.id as string} className={`flex justify-between text-sm ${isTraded ? 'opacity-40' : ''}`}>
+                      <span className={isTraded ? 'line-through text-gray-500' : 'text-gray-300'}>
+                        {pick.draft_year as number} R{pick.round as number} #{pick.pick_number as number}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-gray-500">{pick.original_team_abbr as string}</span>
+                        {isTraded && <span className="text-xs bg-red-900 text-red-300 px-1 py-0.5 rounded">TRADED →</span>}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
