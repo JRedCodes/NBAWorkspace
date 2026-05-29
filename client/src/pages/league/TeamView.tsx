@@ -157,33 +157,71 @@ export default function TeamView() {
 
         {/* Right column */}
         <div className="space-y-4">
-          {/* Team Stats */}
+          {/* Team Stats — current + projected side by side when trade active */}
           {stats && (
             <div className="bg-gray-800 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Season Stats</h2>
-                <span className="text-sm font-medium text-white">
+                <span className="text-sm text-white">
                   {stats.wins}–{stats.losses}
                   {stats.playoff_seed ? <span className="text-xs text-gray-400 ml-1.5">#{stats.playoff_seed} seed</span> : null}
                 </span>
               </div>
 
+              {/* Column headers when projected is available */}
+              {projection?.projectedStats && (
+                <div className="flex justify-end gap-6 mb-2 text-xs">
+                  <span className="text-gray-500">Now</span>
+                  <span className="text-orange-400">After trade</span>
+                </div>
+              )}
+
               <div className="space-y-2.5 text-sm">
                 {[
-                  { label: 'Offensive Rating', value: stats.offensive_rating?.toFixed(1) },
-                  { label: 'Defensive Rating', value: stats.defensive_rating?.toFixed(1) },
-                  { label: 'Net Rating',        value: stats.net_rating?.toFixed(1) },
-                  { label: 'Pace',              value: stats.pace?.toFixed(1) },
-                  { label: '3-Point %',         value: stats.three_pct ? `${(Number(stats.three_pct) * 100).toFixed(1)}%` : null },
-                  { label: '3-Point Rate',      value: stats.three_rate ? `${(Number(stats.three_rate) * 100).toFixed(1)}%` : null },
-                  { label: 'Assist Rate',       value: stats.assist_rate ? `${(Number(stats.assist_rate) * 100).toFixed(1)}%` : null },
-                  { label: 'Turnover Rate',     value: stats.turnover_rate ? `${(Number(stats.turnover_rate) * 100).toFixed(1)}%` : null },
-                ].filter((s) => s.value != null).map(({ label, value }) => (
-                  <div key={label} className="flex justify-between items-center">
-                    <span className="text-gray-400">{label}</span>
-                    <span className="text-white font-medium">{value}</span>
-                  </div>
-                ))}
+                  {
+                    label: 'Offensive Rating',
+                    current: stats.offensive_rating?.toFixed(1),
+                    projected: projection?.projectedStats?.offRating?.toFixed(1),
+                    higherBetter: true,
+                  },
+                  {
+                    label: 'Defensive Rating',
+                    current: stats.defensive_rating?.toFixed(1),
+                    projected: projection?.projectedStats?.defRating?.toFixed(1),
+                    higherBetter: false,
+                  },
+                  {
+                    label: 'Net Rating',
+                    current: stats.net_rating?.toFixed(1),
+                    projected: projection?.projectedStats?.netRating?.toFixed(1),
+                    higherBetter: true,
+                  },
+                  { label: 'Pace', current: stats.pace?.toFixed(1) },
+                  { label: '3-Point %', current: stats.three_pct ? `${(Number(stats.three_pct) * 100).toFixed(1)}%` : null },
+                  { label: '3-Point Rate', current: stats.three_rate ? `${(Number(stats.three_rate) * 100).toFixed(1)}%` : null },
+                  { label: 'Assist Rate', current: stats.assist_rate ? `${(Number(stats.assist_rate) * 100).toFixed(1)}%` : null },
+                  { label: 'Turnover Rate', current: stats.turnover_rate ? `${(Number(stats.turnover_rate) * 100).toFixed(1)}%` : null },
+                ].filter((s) => s.current != null).map(({ label, current, projected, higherBetter }) => {
+                  const hasDelta = projected != null && projected !== current
+                  const delta = hasDelta ? Number(projected) - Number(current) : null
+                  const improved = delta != null && (higherBetter ? delta > 0 : delta < 0)
+                  return (
+                    <div key={label} className="flex justify-between items-center">
+                      <span className="text-gray-400">{label}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-white">{current}</span>
+                        {hasDelta && (
+                          <>
+                            <span className="text-gray-600 text-xs">→</span>
+                            <span className={improved ? 'text-green-400 font-medium' : 'text-red-400 font-medium'}>
+                              {projected}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
